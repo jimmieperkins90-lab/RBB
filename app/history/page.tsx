@@ -25,6 +25,17 @@ function ordinalToNumber(v: string | null): number {
   return Number.isNaN(n) ? 999 : n;
 }
 
+function formatFinishes(places: Map<string, number[]> | undefined): string {
+  if (!places || places.size === 0) return "\u2014";
+  return Array.from(places.entries())
+    .sort((a, b) => ordinalToNumber(a[0]) - ordinalToNumber(b[0]))
+    .map(([place, years]) => {
+      const sortedYears = [...years].sort((a, b) => a - b);
+      return `${place} (${sortedYears.map((y) => `'${String(y).slice(2)}`).join(", ")})`;
+    })
+    .join(", ");
+}
+
 export default function HistoryPage() {
   const [seasons, setSeasons] = useState<Season[]>([]);
   const [managers, setManagers] = useState<Manager[]>([]);
@@ -80,6 +91,19 @@ export default function HistoryPage() {
 
   const managerName = useMemo(() => new Map(managers.map((m) => [m.id, m.name])), [managers]);
 
+  // Finish placements by manager id -> place -> years[] (shared by All-Time Records + Finish History)
+  const finishMapByManager = useMemo(() => {
+    const byManager = new Map<number, Map<string, number[]>>();
+    filteredTeamSeasons.forEach((r) => {
+      if (!r.final_place) return;
+      if (!byManager.has(r.manager_id)) byManager.set(r.manager_id, new Map());
+      const places = byManager.get(r.manager_id)!;
+      if (!places.has(r.final_place)) places.set(r.final_place, []);
+      places.get(r.final_place)!.push(r.year);
+    });
+    return byManager;
+  }, [filteredTeamSeasons]);
+
   // Career records
   const careerTable = useMemo(() => {
     const career = new Map<number, { w: number; l: number; pf: number; games: number }>();
@@ -108,10 +132,13 @@ export default function HistoryPage() {
           pf: c.pf,
           ppg: c.games > 0 ? c.pf / c.games : 0,
           titles: champCounts.get(m.id) ?? 0,
+          games: c.games,
+          finishes: formatFinishes(finishMapByManager.get(m.id)),
         };
       })
+      .filter((r) => r.games > 0)
       .sort((a, b) => b.winPct - a.winPct);
-  }, [filteredMatchups, managers, championships, yearFilter]);
+  }, [filteredMatchups, managers, championships, yearFilter, finishMapByManager]);
 
   // League records
   const leagueRecords = useMemo(() => {
@@ -161,17 +188,9 @@ export default function HistoryPage() {
 
   // Finish history
   const finishHistory = useMemo(() => {
-    const byManager = new Map<number, Map<string, number[]>>();
-    filteredTeamSeasons.forEach((r) => {
-      if (!r.final_place) return;
-      if (!byManager.has(r.manager_id)) byManager.set(r.manager_id, new Map());
-      const places = byManager.get(r.manager_id)!;
-      if (!places.has(r.final_place)) places.set(r.final_place, []);
-      places.get(r.final_place)!.push(r.year);
-    });
     return managers
       .map((m) => {
-        const places = byManager.get(m.id);
+        const places = finishMapByManager.get(m.id);
         if (!places) return { id: m.id, name: m.name, entries: [] as { place: string; years: number[] }[] };
         const entries = Array.from(places.entries())
           .map(([place, years]) => ({ place, years: years.sort((a, b) => a - b) }))
@@ -179,7 +198,7 @@ export default function HistoryPage() {
         return { id: m.id, name: m.name, entries };
       })
       .filter((m) => m.entries.length > 0);
-  }, [filteredTeamSeasons, managers]);
+  }, [finishMapByManager, managers]);
 
   return (
     <div>
@@ -257,30 +276,32 @@ export default function HistoryPage() {
       {!loading && (
         <>
           {/* Career records */}
-          <section className="max-w-4xl mx-auto px-5 py-14">
+          <section className="max-w-5xl mx-auto px-5 py-14">
             <div className="text-center mb-8">
               <h2 className="font-display text-4xl text-gravy chalk-shadow">ALL-TIME RECORDS</h2>
               <div className="menu-divider w-40 mx-auto mt-3" />
             </div>
             <div className="bg-plate border-2 border-coffee rounded-lg shadow-[6px_6px_0_#2B1B12] overflow-hidden overflow-x-auto">
-              <table className="w-full text-sm min-w-[520px]">
+              <table className="w-full text-sm min-w-[760px]">
                 <thead>
                   <tr className="font-mono uppercase text-[11px] text-gravy/70 border-b border-biscuit bg-biscuit/30">
                     <th className="text-left pl-4 py-2 font-semibold">Manager</th>
                     <th className="text-center py-2 font-semibold">Record</th>
                     <th className="text-center py-2 font-semibold">Win%</th>
                     <th className="text-center py-2 font-semibold">PPG</th>
-                    <th className="text-center pr-4 py-2 font-semibold">Titles</th>
+                    <th className="text-center py-2 font-semibold">Titles</th>
+                    <th className="text-left pr-4 py-2 font-semibold">Finishes</th>
                   </tr>
                 </thead>
                 <tbody>
                   {careerTable.map((r, i) => (
                     <tr key={i} className={`border-b border-biscuit/60 last:border-0 ${r.titles > 0 ? "bg-carolina/10" : ""}`}>
-                      <td className="pl-4 py-2 font-semibold text-coffee">{r.name}</td>
-                      <td className="text-center py-2 font-mono">{r.w}-{r.l}</td>
-                      <td className="text-center py-2 font-mono">{(r.winPct * 100).toFixed(1)}%</td>
-                      <td className="text-center py-2 font-mono">{r.ppg.toFixed(1)}</td>
-                      <td className="text-center pr-4 py-2 font-mono text-carolina font-bold">{r.titles > 0 ? r.titles : "\u2014"}</td>
+                      <td className="pl-4 py-2 font-semibold text-coffee align-top whitespace-nowrap">{r.name}</td>
+                      <td className="text-center py-2 font-mono align-top whitespace-nowrap">{r.w}-{r.l}</td>
+                      <td className="text-center py-2 font-mono align-top whitespace-nowrap">{(r.winPct * 100).toFixed(1)}%</td>
+                      <td className="text-center py-2 font-mono align-top whitespace-nowrap">{r.ppg.toFixed(1)}</td>
+                      <td className="text-center py-2 font-mono text-carolina font-bold align-top whitespace-nowrap">{r.titles > 0 ? r.titles : "\u2014"}</td>
+                      <td className="text-left pr-4 py-2 font-mono text-xs text-gravy/80 align-top max-w-[320px] whitespace-normal">{r.finishes}</td>
                     </tr>
                   ))}
                 </tbody>
