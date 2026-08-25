@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import MatchupsSections from "./MatchupsSections";
+import MatchupsSections from ".MatchupsSections";
 
 export const revalidate = 300;
 
