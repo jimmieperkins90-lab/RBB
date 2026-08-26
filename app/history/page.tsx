@@ -256,9 +256,10 @@ export default function HistoryPage() {
     });
     const seasonRows = Array.from(seasonMap.values());
     const topWinsSeasons = [...seasonRows].sort((a, b) => b.w - a.w || b.pf - a.pf).slice(0, 3);
+    const topLossSeasons = [...seasonRows].sort((a, b) => b.l - a.l || a.w - b.w).slice(0, 3);
     const topPointsSeasons = [...seasonRows].sort((a, b) => b.pf - a.pf).slice(0, 3);
 
-    return { topScores, lowScores, topMargins, topWinsSeasons, topPointsSeasons };
+    return { topScores, lowScores, topMargins, topWinsSeasons, topLossSeasons, topPointsSeasons };
   }, [filteredMatchups]);
 
   // Same category set as League Records, scoped down to one manager's own games/seasons.
@@ -298,9 +299,10 @@ export default function HistoryPage() {
     });
     const seasonRows = Array.from(seasonMap.values());
     const topWinsSeasons = [...seasonRows].sort((a, b) => b.w - a.w || b.pf - a.pf).slice(0, 3);
+    const topLossSeasons = [...seasonRows].sort((a, b) => b.l - a.l || a.w - b.w).slice(0, 3);
     const topPointsSeasons = [...seasonRows].sort((a, b) => b.pf - a.pf).slice(0, 3);
 
-    return { topScores, lowScores, topMargins, topWinsSeasons, topPointsSeasons };
+    return { topScores, lowScores, topMargins, topWinsSeasons, topLossSeasons, topPointsSeasons };
   }, [filteredMatchups, recordsFilterId]);
 
   // Normalizes League Records (all managers) and Individual Records (one manager) into
@@ -325,6 +327,10 @@ export default function HistoryPage() {
           value: `${s.w}-${s.l}`,
           detail: `${managerName.get(s.manager_id)} \u00b7 ${s.year}`,
         })),
+        topLossSeasons: leagueRecords.topLossSeasons.map((s) => ({
+          value: `${s.w}-${s.l}`,
+          detail: `${managerName.get(s.manager_id)} \u00b7 ${s.year}`,
+        })),
         topPointsSeasons: leagueRecords.topPointsSeasons.map((s) => ({
           value: Number(s.pf).toFixed(1),
           detail: `${managerName.get(s.manager_id)} \u00b7 ${s.year}`,
@@ -346,6 +352,10 @@ export default function HistoryPage() {
         detail: `def. ${managerName.get(m.opponent)} \u00b7 ${m.year}`,
       })),
       topWinsSeasons: individualRecords.topWinsSeasons.map((s) => ({
+        value: `${s.w}-${s.l}`,
+        detail: `${s.year}`,
+      })),
+      topLossSeasons: individualRecords.topLossSeasons.map((s) => ({
         value: `${s.w}-${s.l}`,
         detail: `${s.year}`,
       })),
@@ -507,6 +517,7 @@ export default function HistoryPage() {
                 <RecordCard title="Lowest Single Score" entries={displayRecords.lowScores} />
                 <RecordCard title="Largest Win Margin" entries={displayRecords.topMargins} />
                 <RecordCard title="Most Wins, Single Season" entries={displayRecords.topWinsSeasons} />
+                <RecordCard title="Most Losses, Single Season" entries={displayRecords.topLossSeasons} />
                 <RecordCard title="Most Points, Single Season" entries={displayRecords.topPointsSeasons} />
               </div>
             )}
