@@ -16,6 +16,7 @@ type Matchup = {
   win: boolean;
   time_of_season: string;
   round_game: string | null;
+  seed: number | null;
 };
 type Championship = { year: number; manager_id: number };
 
@@ -25,15 +26,9 @@ function ordinalToNumber(v: string | null): number {
   return Number.isNaN(n) ? 999 : n;
 }
 
-function formatFinishes(places: Map<string, number[]> | undefined): string {
-  if (!places || places.size === 0) return "\u2014";
-  return Array.from(places.entries())
-    .sort((a, b) => ordinalToNumber(a[0]) - ordinalToNumber(b[0]))
-    .map(([place, years]) => {
-      const sortedYears = [...years].sort((a, b) => a - b);
-      return `${place} (${sortedYears.map((y) => `'${String(y).slice(2)}`).join(", ")})`;
-    })
-    .join(", ");
+function formatYears(years: number[] | undefined): string {
+  if (!years || years.length === 0) return "\u2014";
+  return [...years].sort((a, b) => a - b).map((y) => `'${String(y).slice(2)}`).join(", ");
 }
 
 export default function HistoryPage() {
@@ -45,7 +40,7 @@ export default function HistoryPage() {
   const [loading, setLoading] = useState(true);
 
   const [yearFilter, setYearFilter] = useState<"all" | number>("all");
-  const [teamCountFilter, setTeamCountFilter] = useState<"all" | 10 | 12>("all");
+  const [teamCountFilter, setTeamCountFilter] = useState<"all" | 10 | 12>(12);
   const [seasonType, setSeasonType] = useState<"all" | "regular" | "playoffs">("all");
 
   useEffect(() => {
@@ -55,7 +50,7 @@ export default function HistoryPage() {
       supabase.from("team_seasons").select("manager_id, year, final_place").range(0, 1999),
       supabase
         .from("matchups")
-        .select("year, week, manager_id, opponent_manager_id, score, win, game_played, time_of_season, round_game")
+        .select("year, week, manager_id, opponent_manager_id, score, win, game_played, time_of_season, round_game, seed")
         .eq("game_played", true)
         .range(0, 4999),
       supabase.from("championships").select("year, manager_id").eq("type", "league"),
@@ -81,6 +76,16 @@ export default function HistoryPage() {
     });
   }, [matchups, yearFilter, teamCountFilter, seasonType, yearToTeams]);
 
+  // Year/team-size filtered, but NOT game-type filtered — used for career-identity stats
+  // (playoff appearances, regular season titles) that shouldn't disappear when Game Type = Regular/Playoffs.
+  const yearScopedMatchups = useMemo(() => {
+    return matchups.filter((r) => {
+      if (yearFilter !== "all" && r.year !== yearFilter) return false;
+      if (teamCountFilter !== "all" && yearToTeams.get(r.year) !== teamCountFilter) return false;
+      return true;
+    });
+  }, [matchups, yearFilter, teamCountFilter, yearToTeams]);
+
   const filteredTeamSeasons = useMemo(() => {
     return teamSeasons.filter((r) => {
       if (yearFilter !== "all" && r.year !== yearFilter) return false;
@@ -91,7 +96,7 @@ export default function HistoryPage() {
 
   const managerName = useMemo(() => new Map(managers.map((m) => [m.id, m.name])), [managers]);
 
-  // Finish placements by manager id -> place -> years[] (shared by All-Time Records + Finish History)
+  // Finish placements by manager id -> place -> years[]
   const finishMapByManager = useMemo(() => {
     const byManager = new Map<number, Map<string, number[]>>();
     filteredTeamSeasons.forEach((r) => {
@@ -103,6 +108,54 @@ export default function HistoryPage() {
     });
     return byManager;
   }, [filteredTeamSeasons]);
+
+  // Every distinct finish place present under current filters, sorted 1st -> last, for dynamic columns
+  const allPlaces = useMemo(() => {
+    const set = new Set<string>();
+    filteredTeamSeasons.forEach((r) => {
+      if (r.final_place) set.add(r.final_place);
+    });
+    return Array.from(set).sort((a, b) => ordinalToNumber(a) - ordinalToNumber(b));
+  }, [filteredTeamSeasons]);
+
+  // Seasons played per manager under current year/team-size filters (also used as "Years in League")
+  const seasonsPlayedCounts = useMemo(() => {
+    const byManager = new Map<number, Set<number>>();
+    filteredTeamSeasons.forEach((r) => {
+      if (!byManager.has(r.manager_id)) byManager.set(r.manager_id, new Set());
+      byManager.get(r.manager_id)!.add(r.year);
+    });
+    const counts = new Map<number, number>();
+    byManager.forEach((yearsSet, managerId) => counts.set(managerId, yearsSet.size));
+    return counts;
+  }, [filteredTeamSeasons]);
+
+  // Playoff appearances (time_of_season === "Playoff" only — TB is the consolation bracket)
+  const playoffAppearanceCounts = useMemo(() => {
+    const byManagerYears = new Map<number, Set<number>>();
+    yearScopedMatchups.forEach((r) => {
+      if (r.time_of_season !== "Playoff") return;
+      if (!byManagerYears.has(r.manager_id)) byManagerYears.set(r.manager_id, new Set());
+      byManagerYears.get(r.manager_id)!.add(r.year);
+    });
+    const counts = new Map<number, number>();
+    byManagerYears.forEach((yearsSet, managerId) => counts.set(managerId, yearsSet.size));
+    return counts;
+  }, [yearScopedMatchups]);
+
+  // Regular season titles: manager held the #1 seed that year
+  const regularSeasonTitleCounts = useMemo(() => {
+    const seen = new Set<string>();
+    const counts = new Map<number, number>();
+    yearScopedMatchups.forEach((r) => {
+      if (r.seed !== 1) return;
+      const key = `${r.year}-${r.manager_id}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      counts.set(r.manager_id, (counts.get(r.manager_id) ?? 0) + 1);
+    });
+    return counts;
+  }, [yearScopedMatchups]);
 
   // Career records
   const careerTable = useMemo(() => {
@@ -123,6 +176,7 @@ export default function HistoryPage() {
     return managers
       .map((m) => {
         const c = career.get(m.id) ?? { w: 0, l: 0, pf: 0, games: 0 };
+        const places = finishMapByManager.get(m.id);
         return {
           id: m.id,
           name: m.name,
@@ -132,13 +186,16 @@ export default function HistoryPage() {
           pf: c.pf,
           ppg: c.games > 0 ? c.pf / c.games : 0,
           titles: champCounts.get(m.id) ?? 0,
+          regSeasonTitles: regularSeasonTitleCounts.get(m.id) ?? 0,
+          seasonsPlayed: seasonsPlayedCounts.get(m.id) ?? 0,
+          playoffApps: playoffAppearanceCounts.get(m.id) ?? 0,
           games: c.games,
-          finishes: formatFinishes(finishMapByManager.get(m.id)),
+          places,
         };
       })
       .filter((r) => r.games > 0)
-      .sort((a, b) => b.winPct - a.winPct);
-  }, [filteredMatchups, managers, championships, yearFilter, finishMapByManager]);
+      .sort((a, b) => b.w - a.w);
+  }, [filteredMatchups, managers, championships, yearFilter, finishMapByManager, regularSeasonTitleCounts, seasonsPlayedCounts, playoffAppearanceCounts]);
 
   // League records
   const leagueRecords = useMemo(() => {
@@ -276,21 +333,26 @@ export default function HistoryPage() {
       {!loading && (
         <>
           {/* Career records */}
-          <section className="max-w-5xl mx-auto px-5 py-14">
+          <section className="max-w-6xl mx-auto px-5 py-14">
             <div className="text-center mb-8">
               <h2 className="font-display text-4xl text-gravy chalk-shadow">ALL-TIME RECORDS</h2>
               <div className="menu-divider w-40 mx-auto mt-3" />
             </div>
             <div className="bg-plate border-2 border-coffee rounded-lg shadow-[6px_6px_0_#2B1B12] overflow-hidden overflow-x-auto">
-              <table className="w-full text-sm min-w-[760px]">
+              <table className="w-full text-sm" style={{ minWidth: `${900 + allPlaces.length * 90}px` }}>
                 <thead>
                   <tr className="font-mono uppercase text-[11px] text-gravy/70 border-b border-biscuit bg-biscuit/30">
-                    <th className="text-left pl-4 py-2 font-semibold">Manager</th>
-                    <th className="text-center py-2 font-semibold">Record</th>
-                    <th className="text-center py-2 font-semibold">Win%</th>
-                    <th className="text-center py-2 font-semibold">PPG</th>
-                    <th className="text-center py-2 font-semibold">Titles</th>
-                    <th className="text-left pr-4 py-2 font-semibold">Finishes</th>
+                    <th className="text-left pl-4 py-2 font-semibold whitespace-nowrap">Manager</th>
+                    <th className="text-center py-2 font-semibold whitespace-nowrap">Record</th>
+                    <th className="text-center py-2 font-semibold whitespace-nowrap">Win%</th>
+                    <th className="text-center py-2 font-semibold whitespace-nowrap">PPG</th>
+                    <th className="text-center py-2 font-semibold whitespace-nowrap">Years</th>
+                    <th className="text-center py-2 font-semibold whitespace-nowrap">Titles</th>
+                    <th className="text-center py-2 font-semibold whitespace-nowrap">Reg. Season Titles</th>
+                    <th className="text-center py-2 font-semibold whitespace-nowrap">Playoffs</th>
+                    {allPlaces.map((place) => (
+                      <th key={place} className="text-center py-2 font-semibold whitespace-nowrap">{place}</th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
@@ -300,8 +362,15 @@ export default function HistoryPage() {
                       <td className="text-center py-2 font-mono align-top whitespace-nowrap">{r.w}-{r.l}</td>
                       <td className="text-center py-2 font-mono align-top whitespace-nowrap">{(r.winPct * 100).toFixed(1)}%</td>
                       <td className="text-center py-2 font-mono align-top whitespace-nowrap">{r.ppg.toFixed(1)}</td>
+                      <td className="text-center py-2 font-mono align-top whitespace-nowrap">{r.seasonsPlayed}</td>
                       <td className="text-center py-2 font-mono text-carolina font-bold align-top whitespace-nowrap">{r.titles > 0 ? r.titles : "\u2014"}</td>
-                      <td className="text-left pr-4 py-2 font-mono text-xs text-gravy/80 align-top max-w-[320px] whitespace-normal">{r.finishes}</td>
+                      <td className="text-center py-2 font-mono align-top whitespace-nowrap">{r.regSeasonTitles > 0 ? r.regSeasonTitles : "\u2014"}</td>
+                      <td className="text-center py-2 font-mono align-top whitespace-nowrap">{r.playoffApps} / {r.seasonsPlayed}</td>
+                      {allPlaces.map((place) => (
+                        <td key={place} className="text-center py-2 font-mono text-xs text-gravy/80 align-top whitespace-nowrap">
+                          {formatYears(r.places?.get(place))}
+                        </td>
+                      ))}
                     </tr>
                   ))}
                 </tbody>
