@@ -2,14 +2,38 @@ import { supabase } from "@/lib/supabase";
 
 export const revalidate = 300;
 
+// Pages through a Supabase query in chunks so results are never silently
+// truncated by the project's "Max Rows" API setting, regardless of how
+// many seasons/weeks a query spans.
+async function fetchAllRows<T>(
+  buildQuery: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: any }>,
+  pageSize = 1000
+): Promise<T[]> {
+  let all: T[] = [];
+  let from = 0;
+  for (;;) {
+    const { data, error } = await buildQuery(from, from + pageSize - 1);
+    if (error) throw error;
+    const rows = data ?? [];
+    all = all.concat(rows);
+    if (rows.length < pageSize) break;
+    from += pageSize;
+  }
+  return all;
+}
+
 async function getSeasons() {
-  const { data } = await supabase.from("power_rankings").select("year").range(0, 4999);
-  return Array.from(new Set((data ?? []).map((r: any) => r.year as number))).sort((a, b) => b - a);
+  const rows = await fetchAllRows<{ year: number }>((from, to) =>
+    supabase.from("power_rankings").select("year").range(from, to)
+  );
+  return Array.from(new Set(rows.map((r) => r.year))).sort((a, b) => b - a);
 }
 
 async function getWeeks(year: number) {
-  const { data } = await supabase.from("power_rankings").select("week").eq("year", year).range(0, 999);
-  return Array.from(new Set((data ?? []).map((r: any) => r.week as number))).sort((a, b) => a - b);
+  const rows = await fetchAllRows<{ week: number }>((from, to) =>
+    supabase.from("power_rankings").select("week").eq("year", year).range(from, to)
+  );
+  return Array.from(new Set(rows.map((r) => r.week))).sort((a, b) => a - b);
 }
 
 async function getRankings(year: number, week: number) {
