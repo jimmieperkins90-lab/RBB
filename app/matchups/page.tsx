@@ -19,6 +19,22 @@ async function getWeeks(year: number) {
   return { weeks, hasPlayoffWeek };
 }
 
+async function getSeasonRecords(year: number) {
+  const { data } = await supabase
+    .from("matchups")
+    .select("manager_id, win, game_played")
+    .eq("year", year)
+    .eq("game_played", true);
+  const rec = new Map<number, { w: number; l: number }>();
+  (data ?? []).forEach((r: any) => {
+    const cur = rec.get(r.manager_id) ?? { w: 0, l: 0 };
+    if (r.win) cur.w += 1;
+    else cur.l += 1;
+    rec.set(r.manager_id, cur);
+  });
+  return rec;
+}
+
 async function getMatchups(year: number, week: number) {
   const { data } = await supabase
     .from("matchups")
@@ -89,10 +105,21 @@ export default async function MatchupsPage({
   const latestWeek = weeks[weeks.length - 1] ?? 1;
   const week = searchParams.week ? parseInt(searchParams.week, 10) : latestWeek;
 
-  const games = await getMatchups(year, week);
-  const regularGames = games.filter((g) => g.timeOfSeason === "Regular");
-  const playoffGames = games.filter((g) => g.timeOfSeason === "Playoff");
-  const tbGames = games.filter((g) => g.timeOfSeason === "TB");
+  const [games, seasonRecords] = await Promise.all([getMatchups(year, week), getSeasonRecords(year)]);
+
+  const gamesWithRecords = games.map((g) => {
+    const homeRec = seasonRecords.get(g.homeId);
+    const awayRec = seasonRecords.get(g.awayId);
+    return {
+      ...g,
+      homeRecord: homeRec ? `${homeRec.w}-${homeRec.l}` : null,
+      awayRecord: awayRec ? `${awayRec.w}-${awayRec.l}` : null,
+    };
+  });
+
+  const regularGames = gamesWithRecords.filter((g) => g.timeOfSeason === "Regular");
+  const playoffGames = gamesWithRecords.filter((g) => g.timeOfSeason === "Playoff");
+  const tbGames = gamesWithRecords.filter((g) => g.timeOfSeason === "TB");
 
   return (
     <div>
@@ -108,7 +135,7 @@ export default async function MatchupsPage({
         <div className="bg-plate border-2 border-coffee rounded-lg shadow-[4px_4px_0_#2B1B12] px-4 py-3 flex flex-wrap items-center gap-2 justify-center">
           <span className="font-display text-lg text-gravy mr-2">SEASON</span>
           {seasons.map((y) => (
-            <a
+            
               key={y}
               href={`/matchups?year=${y}`}
               className={`px-3 py-1 rounded font-mono text-sm font-semibold border-2 transition-colors ${
@@ -124,7 +151,7 @@ export default async function MatchupsPage({
       <section className="max-w-6xl mx-auto px-5 mt-4 flex flex-wrap items-center justify-center gap-3">
         <div className="flex flex-wrap items-center gap-1.5 justify-center">
           {weeks.map((w) => (
-            <a
+            
               key={w}
               href={`/matchups?year=${year}&week=${w}`}
               className={`w-9 h-9 flex items-center justify-center rounded-full font-mono text-xs font-bold border-2 transition-colors ${
@@ -136,7 +163,7 @@ export default async function MatchupsPage({
           ))}
         </div>
         {hasPlayoffWeek && (
-          <a
+          
             href={`/matchups/bracket?year=${year}`}
             className="px-4 py-2 rounded-full bg-coffee text-cream font-mono text-xs font-bold uppercase tracking-wide hover:bg-gravy transition-colors"
           >
