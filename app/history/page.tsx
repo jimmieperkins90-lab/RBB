@@ -62,7 +62,7 @@ export default function HistoryPage() {
   const [yearFilter, setYearFilter] = useState<"all" | number>("all");
   const [teamCountFilter, setTeamCountFilter] = useState<"all" | 10 | 12>(12);
   const [seasonType, setSeasonType] = useState<"all" | "regular" | "playoffs">("all");
-  const [individualManagerId, setIndividualManagerId] = useState<number | undefined>(undefined);
+  const [recordsFilterId, setRecordsFilterId] = useState<number | "all">("all");
 
   useEffect(() => {
     let cancelled = false;
@@ -263,7 +263,8 @@ export default function HistoryPage() {
 
   // Same category set as League Records, scoped down to one manager's own games/seasons.
   const individualRecords = useMemo(() => {
-    if (!individualManagerId) return null;
+    if (typeof recordsFilterId !== "number") return null;
+    const individualManagerId = recordsFilterId;
 
     const ownMatchups = filteredMatchups.filter((r) => r.manager_id === individualManagerId);
     const topScores = [...ownMatchups].sort((a, b) => b.score - a.score).slice(0, 3);
@@ -300,7 +301,60 @@ export default function HistoryPage() {
     const topPointsSeasons = [...seasonRows].sort((a, b) => b.pf - a.pf).slice(0, 3);
 
     return { topScores, lowScores, topMargins, topWinsSeasons, topPointsSeasons };
-  }, [filteredMatchups, individualManagerId]);
+  }, [filteredMatchups, recordsFilterId]);
+
+  // Normalizes League Records (all managers) and Individual Records (one manager) into
+  // the same {value, detail}[] shape the record cards render, so the JSX below doesn't
+  // need to branch per-category.
+  const displayRecords = useMemo(() => {
+    if (recordsFilterId === "all") {
+      return {
+        topScores: leagueRecords.topScores.map((g) => ({
+          value: Number(g.score).toFixed(1),
+          detail: `${managerName.get(g.manager_id)} \u00b7 ${g.year}`,
+        })),
+        lowScores: leagueRecords.lowScores.map((g) => ({
+          value: Number(g.score).toFixed(1),
+          detail: `${managerName.get(g.manager_id)} \u00b7 ${g.year}`,
+        })),
+        topMargins: leagueRecords.topMargins.map((m) => ({
+          value: `${m.margin.toFixed(1)} pts`,
+          detail: `${managerName.get(m.winner)} def. ${managerName.get(m.loser)} \u00b7 ${m.year}`,
+        })),
+        topWinsSeasons: leagueRecords.topWinsSeasons.map((s) => ({
+          value: `${s.w}-${s.l}`,
+          detail: `${managerName.get(s.manager_id)} \u00b7 ${s.year}`,
+        })),
+        topPointsSeasons: leagueRecords.topPointsSeasons.map((s) => ({
+          value: Number(s.pf).toFixed(1),
+          detail: `${managerName.get(s.manager_id)} \u00b7 ${s.year}`,
+        })),
+      };
+    }
+    if (!individualRecords) return null;
+    return {
+      topScores: individualRecords.topScores.map((g) => ({
+        value: Number(g.score).toFixed(1),
+        detail: `${g.year} \u00b7 vs ${managerName.get(g.opponent_manager_id)}`,
+      })),
+      lowScores: individualRecords.lowScores.map((g) => ({
+        value: Number(g.score).toFixed(1),
+        detail: `${g.year} \u00b7 vs ${managerName.get(g.opponent_manager_id)}`,
+      })),
+      topMargins: individualRecords.topMargins.map((m) => ({
+        value: `${m.margin.toFixed(1)} pts`,
+        detail: `def. ${managerName.get(m.opponent)} \u00b7 ${m.year}`,
+      })),
+      topWinsSeasons: individualRecords.topWinsSeasons.map((s) => ({
+        value: `${s.w}-${s.l}`,
+        detail: `${s.year}`,
+      })),
+      topPointsSeasons: individualRecords.topPointsSeasons.map((s) => ({
+        value: Number(s.pf).toFixed(1),
+        detail: `${s.year}`,
+      })),
+    };
+  }, [recordsFilterId, leagueRecords, individualRecords, managerName]);
 
   return (
     <div>
@@ -426,103 +480,34 @@ export default function HistoryPage() {
               <h2 className="font-display text-4xl text-gravy chalk-shadow">LEAGUE RECORDS</h2>
               <div className="menu-divider w-40 mx-auto mt-3" />
             </div>
-            <div className="grid sm:grid-cols-2 gap-5">
-              <RecordCard
-                title="Highest Single Score"
-                entries={leagueRecords.topScores.map((g) => ({
-                  value: Number(g.score).toFixed(1),
-                  detail: `${managerName.get(g.manager_id)} \u00b7 ${g.year}`,
-                }))}
-              />
-              <RecordCard
-                title="Lowest Single Score"
-                entries={leagueRecords.lowScores.map((g) => ({
-                  value: Number(g.score).toFixed(1),
-                  detail: `${managerName.get(g.manager_id)} \u00b7 ${g.year}`,
-                }))}
-              />
-              <RecordCard
-                title="Largest Win Margin"
-                entries={leagueRecords.topMargins.map((m) => ({
-                  value: `${m.margin.toFixed(1)} pts`,
-                  detail: `${managerName.get(m.winner)} def. ${managerName.get(m.loser)} \u00b7 ${m.year}`,
-                }))}
-              />
-              <RecordCard
-                title="Most Wins, Single Season"
-                entries={leagueRecords.topWinsSeasons.map((s) => ({
-                  value: `${s.w}-${s.l}`,
-                  detail: `${managerName.get(s.manager_id)} \u00b7 ${s.year}`,
-                }))}
-              />
-              <RecordCard
-                title="Most Points, Single Season"
-                entries={leagueRecords.topPointsSeasons.map((s) => ({
-                  value: Number(s.pf).toFixed(1),
-                  detail: `${managerName.get(s.manager_id)} \u00b7 ${s.year}`,
-                }))}
-              />
-            </div>
-          </section>
-
-          <section className="max-w-5xl mx-auto px-5 pb-14">
-            <div className="text-center mb-8">
-              <h2 className="font-display text-4xl text-gravy chalk-shadow">INDIVIDUAL RECORDS</h2>
-              <div className="menu-divider w-40 mx-auto mt-3" />
-            </div>
             <div className="flex flex-wrap items-center gap-1.5 justify-center mb-8">
+              <button
+                onClick={() => setRecordsFilterId("all")}
+                className={`px-3 py-1.5 rounded-full font-mono text-xs font-semibold border-2 transition-colors ${
+                  recordsFilterId === "all" ? "bg-coffee text-cream border-coffee" : "bg-transparent text-gravy border-biscuit hover:border-coffee"
+                }`}
+              >
+                All
+              </button>
               {managers.map((m) => (
                 <button
                   key={m.id}
-                  onClick={() => setIndividualManagerId(m.id)}
+                  onClick={() => setRecordsFilterId(m.id)}
                   className={`px-3 py-1.5 rounded-full font-mono text-xs font-semibold border-2 transition-colors ${
-                    m.id === individualManagerId ? "bg-coffee text-cream border-coffee" : "bg-transparent text-gravy border-biscuit hover:border-coffee"
+                    m.id === recordsFilterId ? "bg-coffee text-cream border-coffee" : "bg-transparent text-gravy border-biscuit hover:border-coffee"
                   }`}
                 >
                   {m.name}
                 </button>
               ))}
             </div>
-            {!individualManagerId && (
-              <p className="text-center font-body text-gravy/60">Pick a manager above to see their personal records.</p>
-            )}
-            {individualManagerId && individualRecords && (
+            {displayRecords && (
               <div className="grid sm:grid-cols-2 gap-5">
-                <RecordCard
-                  title="Highest Single Score"
-                  entries={individualRecords.topScores.map((g) => ({
-                    value: Number(g.score).toFixed(1),
-                    detail: `${g.year} \u00b7 vs ${managerName.get(g.opponent_manager_id)}`,
-                  }))}
-                />
-                <RecordCard
-                  title="Lowest Single Score"
-                  entries={individualRecords.lowScores.map((g) => ({
-                    value: Number(g.score).toFixed(1),
-                    detail: `${g.year} \u00b7 vs ${managerName.get(g.opponent_manager_id)}`,
-                  }))}
-                />
-                <RecordCard
-                  title="Largest Win Margin"
-                  entries={individualRecords.topMargins.map((m) => ({
-                    value: `${m.margin.toFixed(1)} pts`,
-                    detail: `def. ${managerName.get(m.opponent)} \u00b7 ${m.year}`,
-                  }))}
-                />
-                <RecordCard
-                  title="Most Wins, Single Season"
-                  entries={individualRecords.topWinsSeasons.map((s) => ({
-                    value: `${s.w}-${s.l}`,
-                    detail: `${s.year}`,
-                  }))}
-                />
-                <RecordCard
-                  title="Most Points, Single Season"
-                  entries={individualRecords.topPointsSeasons.map((s) => ({
-                    value: Number(s.pf).toFixed(1),
-                    detail: `${s.year}`,
-                  }))}
-                />
+                <RecordCard title="Highest Single Score" entries={displayRecords.topScores} />
+                <RecordCard title="Lowest Single Score" entries={displayRecords.lowScores} />
+                <RecordCard title="Largest Win Margin" entries={displayRecords.topMargins} />
+                <RecordCard title="Most Wins, Single Season" entries={displayRecords.topWinsSeasons} />
+                <RecordCard title="Most Points, Single Season" entries={displayRecords.topPointsSeasons} />
               </div>
             )}
           </section>
