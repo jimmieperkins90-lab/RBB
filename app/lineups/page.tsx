@@ -538,59 +538,84 @@ function AllManagersSeasonGrid({
     return Array.from(set).sort((a, b) => a - b);
   }, [dataByManager]);
 
-  return (
-    <div className="relative overflow-auto rounded-lg border-2 border-coffee shadow-[6px_6px_0_#2B1B12]" style={{ maxHeight: "75vh" }}>
-      <div className="grid" style={{ gridTemplateColumns: `90px repeat(${managers.length}, minmax(260px, 1fr))` }}>
-        <div className="sticky top-0 left-0 z-30 bg-coffee text-cream flex items-center justify-center font-mono text-xs font-bold uppercase px-2 py-3 border-b-2 border-r-2 border-burnt">
-          Week
-        </div>
-        {managers.map((m) => (
-          <div
-            key={m.id}
-            className="sticky top-0 z-20 bg-coffee text-cream flex items-center justify-center font-display text-lg px-3 py-3 border-b-2 border-r border-burnt/50 whitespace-nowrap"
-          >
-            {m.name}
-          </div>
-        ))}
+  const WEEK_COL_WIDTH = 90;
+  const MANAGER_COL_WIDTH = 260;
 
-        {weekNumbers.map((wk) => (
-          <div key={wk} className="contents">
-            <div className="sticky left-0 z-10 bg-biscuit flex items-center justify-center border-b-2 border-r-2 border-coffee py-6">
-              <span
-                className="font-display text-2xl text-coffee tracking-wide chalk-shadow"
-                style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
+  return (
+    <div
+      className="relative overflow-auto rounded-lg border-2 border-coffee shadow-[6px_6px_0_#2B1B12]"
+      style={{ maxHeight: "75vh", WebkitOverflowScrolling: "touch" }}
+    >
+      <table
+        className="border-separate border-spacing-0"
+        style={{ tableLayout: "fixed", borderCollapse: "separate" }}
+      >
+        <thead>
+          <tr>
+            <th
+              className="sticky top-0 left-0 z-30 bg-coffee text-cream font-mono text-xs font-bold uppercase px-2 py-3 border-b-2 border-r-2 border-burnt"
+              style={{ width: WEEK_COL_WIDTH, minWidth: WEEK_COL_WIDTH }}
+            >
+              Week
+            </th>
+            {managers.map((m) => (
+              <th
+                key={m.id}
+                className="sticky top-0 z-20 bg-coffee text-cream font-display text-lg px-3 py-3 border-b-2 border-r border-burnt/50 whitespace-nowrap"
+                style={{ width: MANAGER_COL_WIDTH, minWidth: MANAGER_COL_WIDTH }}
               >
-                WK {wk}
-              </span>
-            </div>
-            {managers.map((m) => {
-              const weekData = dataByManager?.get(m.id)?.find((w) => w.week === wk);
-              return (
-                <div key={m.id} className="border-b border-r border-biscuit/60 bg-plate">
-                  {!weekData && <p className="text-center font-mono text-xs text-gravy/40 py-4">\u2014</p>}
-                  {weekData && (
-                    <div>
-                      <div className="px-3 py-1.5 bg-burnt/90 text-cream flex items-center justify-between">
-                        <span className="font-mono text-[10px] font-bold uppercase">Total</span>
-                        <span className="font-mono text-xs font-bold">
-                          {weekData.total.toFixed(1)} <span className="text-cream/60">/ {weekData.totalProj.toFixed(1)}</span>
-                        </span>
+                {m.name}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {weekNumbers.map((wk) => (
+            <tr key={wk}>
+              <td
+                className="sticky left-0 z-10 bg-biscuit border-b-2 border-r-2 border-coffee py-6 text-center align-middle"
+                style={{ width: WEEK_COL_WIDTH, minWidth: WEEK_COL_WIDTH }}
+              >
+                <span
+                  className="font-display text-2xl text-coffee tracking-wide chalk-shadow inline-block"
+                  style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
+                >
+                  WK {wk}
+                </span>
+              </td>
+              {managers.map((m) => {
+                const weekData = dataByManager?.get(m.id)?.find((w) => w.week === wk);
+                return (
+                  <td
+                    key={m.id}
+                    className="border-b border-r border-biscuit/60 bg-plate align-top"
+                    style={{ width: MANAGER_COL_WIDTH, minWidth: MANAGER_COL_WIDTH }}
+                  >
+                    {!weekData && <p className="text-center font-mono text-xs text-gravy/40 py-4">&mdash;</p>}
+                    {weekData && (
+                      <div>
+                        <div className="px-3 py-1.5 bg-burnt/90 text-cream flex items-center justify-between">
+                          <span className="font-mono text-[10px] font-bold uppercase">Total</span>
+                          <span className="font-mono text-xs font-bold">
+                            {weekData.total.toFixed(1)} <span className="text-cream/60">/ {weekData.totalProj.toFixed(1)}</span>
+                          </span>
+                        </div>
+                        <PlayerTable rows={weekData.starters} />
+                        {weekData.bench.length > 0 && (
+                          <>
+                            <div className="px-3 py-1 bg-biscuit/50 font-mono text-[10px] font-bold uppercase text-gravy/80">Bench</div>
+                            <PlayerTable rows={weekData.bench} muted />
+                          </>
+                        )}
                       </div>
-                      <PlayerTable rows={weekData.starters} />
-                      {weekData.bench.length > 0 && (
-                        <>
-                          <div className="px-3 py-1 bg-biscuit/50 font-mono text-[10px] font-bold uppercase text-gravy/80">Bench</div>
-                          <PlayerTable rows={weekData.bench} muted />
-                        </>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        ))}
-      </div>
+                    )}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
