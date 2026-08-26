@@ -35,6 +35,15 @@ function formatYearRange(start: number, end: number): string {
   return start === end ? `${start}` : `${start}\u2013${end}`;
 }
 
+// Playoff and TB brackets can share the same round_game label (e.g. "Championship"
+// appears in both), so anywhere a round is shown outside Matchups/Bracket needs this
+// suffix to disambiguate which bracket it happened in.
+function roundTag(timeOfSeason: string, roundGame: string | null): string {
+  if (!roundGame || timeOfSeason === "Regular") return "";
+  const bracket = timeOfSeason === "TB" ? "TB" : "Playoff";
+  return ` \u00b7 ${roundGame} (${bracket})`;
+}
+
 type PlayoffRun = { managerId: number; type: "streak" | "drought"; length: number; startYear: number; endYear: number };
 
 // Splits a manager's participated years into consecutive runs of "made playoffs" (streak)
@@ -295,14 +304,14 @@ export default function HistoryPage() {
       if (!pairMap.has(key)) pairMap.set(key, []);
       pairMap.get(key)!.push(r);
     });
-    const margins: { year: number; winner: number; loser: number; margin: number }[] = [];
+    const margins: { year: number; winner: number; loser: number; margin: number; roundGame: string | null; timeOfSeason: string }[] = [];
     pairMap.forEach((pair) => {
       if (pair.length < 2) return;
       const [a, b] = pair;
       const margin = Math.abs(Number(a.score) - Number(b.score));
       const winner = a.win ? a : b;
       const loser = a.win ? b : a;
-      margins.push({ year: a.year, winner: winner.manager_id, loser: loser.manager_id, margin });
+      margins.push({ year: a.year, winner: winner.manager_id, loser: loser.manager_id, margin, roundGame: a.round_game, timeOfSeason: a.time_of_season });
     });
     margins.sort((a, b) => b.margin - a.margin);
     const topMargins = margins.slice(0, 3);
@@ -342,14 +351,14 @@ export default function HistoryPage() {
       if (!pairMap.has(key)) pairMap.set(key, []);
       pairMap.get(key)!.push(r);
     });
-    const winMargins: { year: number; opponent: number; margin: number }[] = [];
+    const winMargins: { year: number; opponent: number; margin: number; roundGame: string | null; timeOfSeason: string }[] = [];
     pairMap.forEach((pair) => {
       if (pair.length < 2) return;
       const [a, b] = pair;
       const mine = a.manager_id === individualManagerId ? a : b.manager_id === individualManagerId ? b : null;
       if (!mine || !mine.win) return;
       const opp = mine === a ? b : a;
-      winMargins.push({ year: mine.year, opponent: opp.manager_id, margin: Math.abs(Number(mine.score) - Number(opp.score)) });
+      winMargins.push({ year: mine.year, opponent: opp.manager_id, margin: Math.abs(Number(mine.score) - Number(opp.score)), roundGame: mine.round_game, timeOfSeason: mine.time_of_season });
     });
     winMargins.sort((a, b) => b.margin - a.margin);
     const topMargins = winMargins.slice(0, 3);
@@ -383,15 +392,15 @@ export default function HistoryPage() {
       return {
         topScores: leagueRecords.topScores.map((g) => ({
           value: Number(g.score).toFixed(1),
-          detail: `${managerName.get(g.manager_id)} \u00b7 ${g.year}`,
+          detail: `${managerName.get(g.manager_id)} \u00b7 ${g.year}${roundTag(g.time_of_season, g.round_game)}`,
         })),
         lowScores: leagueRecords.lowScores.map((g) => ({
           value: Number(g.score).toFixed(1),
-          detail: `${managerName.get(g.manager_id)} \u00b7 ${g.year}`,
+          detail: `${managerName.get(g.manager_id)} \u00b7 ${g.year}${roundTag(g.time_of_season, g.round_game)}`,
         })),
         topMargins: leagueRecords.topMargins.map((m) => ({
           value: `${m.margin.toFixed(1)} pts`,
-          detail: `${managerName.get(m.winner)} def. ${managerName.get(m.loser)} \u00b7 ${m.year}`,
+          detail: `${managerName.get(m.winner)} def. ${managerName.get(m.loser)} \u00b7 ${m.year}${roundTag(m.timeOfSeason, m.roundGame)}`,
         })),
         topWinsSeasons: leagueRecords.topWinsSeasons.map((s) => ({
           value: `${s.w}-${s.l}`,
@@ -419,15 +428,15 @@ export default function HistoryPage() {
     return {
       topScores: individualRecords.topScores.map((g) => ({
         value: Number(g.score).toFixed(1),
-        detail: `${g.year} \u00b7 vs ${managerName.get(g.opponent_manager_id)}`,
+        detail: `${g.year} \u00b7 vs ${managerName.get(g.opponent_manager_id)}${roundTag(g.time_of_season, g.round_game)}`,
       })),
       lowScores: individualRecords.lowScores.map((g) => ({
         value: Number(g.score).toFixed(1),
-        detail: `${g.year} \u00b7 vs ${managerName.get(g.opponent_manager_id)}`,
+        detail: `${g.year} \u00b7 vs ${managerName.get(g.opponent_manager_id)}${roundTag(g.time_of_season, g.round_game)}`,
       })),
       topMargins: individualRecords.topMargins.map((m) => ({
         value: `${m.margin.toFixed(1)} pts`,
-        detail: `def. ${managerName.get(m.opponent)} \u00b7 ${m.year}`,
+        detail: `def. ${managerName.get(m.opponent)} \u00b7 ${m.year}${roundTag(m.timeOfSeason, m.roundGame)}`,
       })),
       topWinsSeasons: individualRecords.topWinsSeasons.map((s) => ({
         value: `${s.w}-${s.l}`,
@@ -532,10 +541,10 @@ export default function HistoryPage() {
               <div className="menu-divider w-40 mx-auto mt-3" />
             </div>
             <div className="bg-plate border-2 border-coffee rounded-lg shadow-[6px_6px_0_#2B1B12] overflow-hidden overflow-x-auto">
-              <table className="w-full text-sm" style={{ minWidth: `${900 + allPlaces.length * 90}px` }}>
+              <table className="w-full text-sm border-separate border-spacing-0" style={{ minWidth: `${900 + allPlaces.length * 90}px` }}>
                 <thead>
                   <tr className="font-mono uppercase text-[11px] text-gravy/70 border-b border-biscuit bg-biscuit/30">
-                    <th className="text-left pl-4 py-2 font-semibold whitespace-nowrap">Manager</th>
+                    <th className="sticky left-0 z-10 bg-biscuit text-left pl-4 py-2 font-semibold whitespace-nowrap">Manager</th>
                     <th className="text-center py-2 font-semibold whitespace-nowrap">Record</th>
                     <th className="text-center py-2 font-semibold whitespace-nowrap">Win%</th>
                     <th className="text-center py-2 font-semibold whitespace-nowrap">PPG</th>
@@ -551,7 +560,9 @@ export default function HistoryPage() {
                 <tbody>
                   {careerTable.map((r, i) => (
                     <tr key={i} className={`border-b border-biscuit/60 last:border-0 ${r.titles > 0 ? "bg-carolina/10" : ""}`}>
-                      <td className="pl-4 py-2 font-semibold text-coffee align-top whitespace-nowrap">{r.name}</td>
+                      <td className={`sticky left-0 z-10 pl-4 py-2 font-semibold text-coffee align-top whitespace-nowrap ${r.titles > 0 ? "bg-carolina/10" : "bg-plate"}`}>
+                        {r.name}
+                      </td>
                       <td className="text-center py-2 font-mono align-top whitespace-nowrap">{r.w}-{r.l}</td>
                       <td className="text-center py-2 font-mono align-top whitespace-nowrap">{(r.winPct * 100).toFixed(1)}%</td>
                       <td className="text-center py-2 font-mono align-top whitespace-nowrap">{r.ppg.toFixed(1)}</td>
