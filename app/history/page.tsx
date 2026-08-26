@@ -225,9 +225,10 @@ export default function HistoryPage() {
       .sort((a, b) => b.w - a.w);
   }, [filteredMatchups, managers, championships, yearFilter, finishMapByManager, regularSeasonTitleCounts, seasonsPlayedCounts, playoffAppearanceCounts]);
 
+  // League records — top 3 per category
   const leagueRecords = useMemo(() => {
-    const bestGame = filteredMatchups.reduce((max, r) => (r.score > (max?.score ?? -1) ? r : max), null as Matchup | null);
-    const worstGame = filteredMatchups.reduce((min, r) => (r.score < (min?.score ?? Infinity) ? r : min), null as Matchup | null);
+    const topScores = [...filteredMatchups].sort((a, b) => b.score - a.score).slice(0, 3);
+    const lowScores = [...filteredMatchups].sort((a, b) => a.score - b.score).slice(0, 3);
 
     const pairMap = new Map<string, Matchup[]>();
     filteredMatchups.forEach((r) => {
@@ -235,24 +236,17 @@ export default function HistoryPage() {
       if (!pairMap.has(key)) pairMap.set(key, []);
       pairMap.get(key)!.push(r);
     });
-    let largestMargin: { year: number; winner: number; loser: number; margin: number; winnerScore: number; loserScore: number } | null = null;
+    const margins: { year: number; winner: number; loser: number; margin: number }[] = [];
     pairMap.forEach((pair) => {
       if (pair.length < 2) return;
       const [a, b] = pair;
       const margin = Math.abs(Number(a.score) - Number(b.score));
-      if (!largestMargin || margin > largestMargin.margin) {
-        const winner = a.win ? a : b;
-        const loser = a.win ? b : a;
-        largestMargin = {
-          year: a.year,
-          winner: winner.manager_id,
-          loser: loser.manager_id,
-          margin,
-          winnerScore: Number(winner.score),
-          loserScore: Number(loser.score),
-        };
-      }
+      const winner = a.win ? a : b;
+      const loser = a.win ? b : a;
+      margins.push({ year: a.year, winner: winner.manager_id, loser: loser.manager_id, margin });
     });
+    margins.sort((a, b) => b.margin - a.margin);
+    const topMargins = margins.slice(0, 3);
 
     const seasonMap = new Map<string, { manager_id: number; year: number; w: number; l: number; pf: number }>();
     filteredMatchups.forEach((r) => {
@@ -264,24 +258,11 @@ export default function HistoryPage() {
       s.pf += Number(r.score ?? 0);
     });
     const seasonRows = Array.from(seasonMap.values());
-    const mostWinsSeason = seasonRows.reduce((max, s) => (s.w > (max?.w ?? -1) ? s : max), null as any);
-    const mostPointsSeason = seasonRows.reduce((max, s) => (s.pf > (max?.pf ?? -1) ? s : max), null as any);
+    const topWinsSeasons = [...seasonRows].sort((a, b) => b.w - a.w || b.pf - a.pf).slice(0, 3);
+    const topPointsSeasons = [...seasonRows].sort((a, b) => b.pf - a.pf).slice(0, 3);
 
-    return { bestGame, worstGame, largestMargin, mostWinsSeason, mostPointsSeason };
+    return { topScores, lowScores, topMargins, topWinsSeasons, topPointsSeasons };
   }, [filteredMatchups]);
-
-  const finishHistory = useMemo(() => {
-    return managers
-      .map((m) => {
-        const places = finishMapByManager.get(m.id);
-        if (!places) return { id: m.id, name: m.name, entries: [] as { place: string; years: number[] }[] };
-        const entries = Array.from(places.entries())
-          .map(([place, years]) => ({ place, years: years.sort((a, b) => a - b) }))
-          .sort((a, b) => ordinalToNumber(a.place) - ordinalToNumber(b.place));
-        return { id: m.id, name: m.name, entries };
-      })
-      .filter((m) => m.entries.length > 0);
-  }, [finishMapByManager, managers]);
 
   return (
     <div>
@@ -402,7 +383,7 @@ export default function HistoryPage() {
             </div>
           </section>
 
-          <section className="max-w-4xl mx-auto px-5 pb-14">
+          <section className="max-w-5xl mx-auto px-5 pb-14">
             <div className="text-center mb-8">
               <h2 className="font-display text-4xl text-gravy chalk-shadow">LEAGUE RECORDS</h2>
               <div className="menu-divider w-40 mx-auto mt-3" />
@@ -410,58 +391,39 @@ export default function HistoryPage() {
             <div className="grid sm:grid-cols-2 gap-5">
               <RecordCard
                 title="Highest Single Score"
-                value={leagueRecords.bestGame ? Number(leagueRecords.bestGame.score).toFixed(1) : "\u2014"}
-                detail={leagueRecords.bestGame ? `${managerName.get(leagueRecords.bestGame.manager_id)} \u00b7 ${leagueRecords.bestGame.year}` : ""}
+                entries={leagueRecords.topScores.map((g) => ({
+                  value: Number(g.score).toFixed(1),
+                  detail: `${managerName.get(g.manager_id)} \u00b7 ${g.year}`,
+                }))}
               />
               <RecordCard
                 title="Lowest Single Score"
-                value={leagueRecords.worstGame ? Number(leagueRecords.worstGame.score).toFixed(1) : "\u2014"}
-                detail={leagueRecords.worstGame ? `${managerName.get(leagueRecords.worstGame.manager_id)} \u00b7 ${leagueRecords.worstGame.year}` : ""}
+                entries={leagueRecords.lowScores.map((g) => ({
+                  value: Number(g.score).toFixed(1),
+                  detail: `${managerName.get(g.manager_id)} \u00b7 ${g.year}`,
+                }))}
               />
               <RecordCard
                 title="Largest Win Margin"
-                value={leagueRecords.largestMargin ? `${(leagueRecords.largestMargin as any).margin.toFixed(1)} pts` : "\u2014"}
-                detail={
-                  leagueRecords.largestMargin
-                    ? `${managerName.get((leagueRecords.largestMargin as any).winner)} def. ${managerName.get((leagueRecords.largestMargin as any).loser)} \u00b7 ${(leagueRecords.largestMargin as any).year}`
-                    : ""
-                }
+                entries={leagueRecords.topMargins.map((m) => ({
+                  value: `${m.margin.toFixed(1)} pts`,
+                  detail: `${managerName.get(m.winner)} def. ${managerName.get(m.loser)} \u00b7 ${m.year}`,
+                }))}
               />
               <RecordCard
                 title="Most Wins, Single Season"
-                value={leagueRecords.mostWinsSeason ? `${leagueRecords.mostWinsSeason.w}-${leagueRecords.mostWinsSeason.l}` : "\u2014"}
-                detail={leagueRecords.mostWinsSeason ? `${managerName.get(leagueRecords.mostWinsSeason.manager_id)} \u00b7 ${leagueRecords.mostWinsSeason.year}` : ""}
+                entries={leagueRecords.topWinsSeasons.map((s) => ({
+                  value: `${s.w}-${s.l}`,
+                  detail: `${managerName.get(s.manager_id)} \u00b7 ${s.year}`,
+                }))}
               />
               <RecordCard
                 title="Most Points, Single Season"
-                value={leagueRecords.mostPointsSeason ? Number(leagueRecords.mostPointsSeason.pf).toFixed(1) : "\u2014"}
-                detail={leagueRecords.mostPointsSeason ? `${managerName.get(leagueRecords.mostPointsSeason.manager_id)} \u00b7 ${leagueRecords.mostPointsSeason.year}` : ""}
+                entries={leagueRecords.topPointsSeasons.map((s) => ({
+                  value: Number(s.pf).toFixed(1),
+                  detail: `${managerName.get(s.manager_id)} \u00b7 ${s.year}`,
+                }))}
               />
-            </div>
-          </section>
-
-          <section className="max-w-4xl mx-auto px-5 pb-14">
-            <div className="text-center mb-8">
-              <h2 className="font-display text-4xl text-gravy chalk-shadow">FINISH HISTORY</h2>
-              <div className="menu-divider w-40 mx-auto mt-3" />
-            </div>
-            <div className="space-y-4">
-              {finishHistory.length === 0 && (
-                <p className="text-center font-body text-gravy/70">No finish data for these filters.</p>
-              )}
-              {finishHistory.map((m) => (
-                <div key={m.id} className="bg-plate border-2 border-coffee rounded-lg shadow-[5px_5px_0_#2B1B12] overflow-hidden">
-                  <div className="px-4 py-2 bg-burnt text-cream font-display text-lg tracking-wide">{m.name}</div>
-                  <div className="px-4 py-3 flex flex-wrap gap-2">
-                    {m.entries.map((e, i) => (
-                      <span key={i} className="font-mono text-xs bg-biscuit/40 text-gravy px-2 py-1 rounded">
-                        {e.place} &times;{e.years.length}{" "}
-                        <span className="text-gravy/50">({e.years.map((y) => `'${String(y).slice(2)}`).join(", ")})</span>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ))}
             </div>
           </section>
 
@@ -478,13 +440,19 @@ export default function HistoryPage() {
   );
 }
 
-function RecordCard({ title, value, detail }: { title: string; value: string; detail: string }) {
+function RecordCard({ title, entries }: { title: string; entries: { value: string; detail: string }[] }) {
   return (
     <div className="bg-plate border-2 border-coffee rounded-lg shadow-[5px_5px_0_#2B1B12] overflow-hidden">
       <div className="px-4 py-2 bg-gravy text-cream font-mono text-xs font-bold uppercase">{title}</div>
-      <div className="px-4 py-3">
-        <div className="font-display text-3xl text-burnt">{value}</div>
-        <div className="font-mono text-xs text-gravy/60 mt-1">{detail}</div>
+      <div className="px-4 py-3 space-y-2">
+        {entries.length === 0 && <div className="font-mono text-xs text-gravy/60">\u2014</div>}
+        {entries.map((e, i) => (
+          <div key={i} className="flex items-baseline gap-2">
+            <span className="font-mono text-xs text-burnt font-bold w-4">{i + 1}.</span>
+            <span className="font-display text-xl text-burnt">{e.value}</span>
+            <span className="font-mono text-xs text-gravy/60">{e.detail}</span>
+          </div>
+        ))}
       </div>
     </div>
   );
