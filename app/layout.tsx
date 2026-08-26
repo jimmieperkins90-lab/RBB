@@ -43,7 +43,7 @@ export default function RootLayout({
               THE R.B.B. <span className="text-burnt">DINER</span>
             </Link>
             <nav className="flex flex-wrap gap-1 text-sm font-semibold uppercase tracking-wide">
-              <Link href="/standings" className="px-3 py-2 rounded hover:bg-white/10 transition-colors">Standings</Link>
+              <Link href="/standings" className="px-3 py-2 rounded hover:bg-white/10 transition-colors">Seasons</Link>
               <Link href="/matchups" className="px-3 py-2 rounded hover:bg-white/10 transition-colors">Matchups</Link>
               <Link href="/lineups" className="px-3 py-2 rounded hover:bg-white/10 transition-colors">Lineups</Link>
               <Link href="/draft" className="px-3 py-2 rounded hover:bg-white/10 transition-colors">Draft</Link>
