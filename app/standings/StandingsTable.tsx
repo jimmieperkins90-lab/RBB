@@ -12,6 +12,12 @@ type StandingRow = {
   record: { w: number; l: number; pf: number };
 };
 
+type PlayoffOddsRow = {
+  manager_id: number;
+  playoff_pct: number;
+  as_of_week: number;
+};
+
 type GameRow = {
   week: number;
   time_of_season: string;
@@ -33,10 +39,14 @@ export default function StandingsTable({
   standings,
   year,
   hasDivisions,
+  seasonComplete,
+  playoffOdds,
 }: {
   standings: StandingRow[];
   year: number;
   hasDivisions: boolean;
+  seasonComplete: boolean;
+  playoffOdds: PlayoffOddsRow[];
 }) {
   const [openManagerId, setOpenManagerId] = useState<number | null>(null);
   const [gamesByManager, setGamesByManager] = useState<Record<number, GameRow[]>>({});
@@ -45,6 +55,9 @@ export default function StandingsTable({
   const [openGameKey, setOpenGameKey] = useState<string | null>(null);
   const [rostersByGameKey, setRostersByGameKey] = useState<Record<string, { home: RosterEntry[]; away: RosterEntry[]; homeName: string; awayName: string }>>({});
   const [loadingGameKey, setLoadingGameKey] = useState<string | null>(null);
+
+  const oddsByManager = new Map(playoffOdds.map((o) => [o.manager_id, o]));
+  const oddsAsOfWeek = playoffOdds[0]?.as_of_week;
 
   async function toggleManager(managerId: number) {
     if (openManagerId === managerId) {
@@ -130,7 +143,9 @@ export default function StandingsTable({
             {hasDivisions && <th className="text-left py-2 font-semibold">Division</th>}
             <th className="text-center py-2 font-semibold">Record</th>
             <th className="text-center py-2 font-semibold">PF</th>
-            <th className="text-center pr-4 py-2 font-semibold">Finish</th>
+            <th className="text-center pr-4 py-2 font-semibold">
+              {seasonComplete ? "Finish" : "Playoff Odds"}
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -154,7 +169,13 @@ export default function StandingsTable({
                 )}
                 <td className="text-center py-2 font-mono">{t.record.w}-{t.record.l}</td>
                 <td className="text-center py-2 font-mono">{t.record.pf.toFixed(1)}</td>
-                <td className="text-center pr-4 py-2 font-mono text-burnt font-bold">{t.final_place ?? "\u2014"}</td>
+                <td className="text-center pr-4 py-2 font-mono font-bold">
+                  {seasonComplete ? (
+                    <span className="text-burnt">{t.final_place ?? "\u2014"}</span>
+                  ) : (
+                    <PlayoffOddsCell odds={oddsByManager.get(t.manager_id)} />
+                  )}
+                </td>
               </tr>
               {openManagerId === t.manager_id && (
                 <tr key={`${t.manager_id}-expanded`} className="bg-cream/60">
@@ -216,8 +237,21 @@ export default function StandingsTable({
           ))}
         </tbody>
       </table>
+      {!seasonComplete && oddsAsOfWeek != null && (
+        <p className="text-center font-mono text-[10px] text-gravy/50 py-2 bg-biscuit/20">
+          Playoff odds as of week {oddsAsOfWeek}
+        </p>
+      )}
     </div>
   );
+}
+
+// Renders "—" until playoff_odds has a row for this manager (e.g. before the season
+// starts, or before the first odds refresh of the year has been loaded).
+function PlayoffOddsCell({ odds }: { odds: PlayoffOddsRow | undefined }) {
+  if (!odds) return <span className="text-gravy/40">{"\u2014"}</span>;
+  const pct = Math.round(Number(odds.playoff_pct));
+  return <span className={pct >= 50 ? "text-green-700" : "text-burnt"}>{pct}%</span>;
 }
 
 function RosterList({ label, entries }: { label: string; entries: RosterEntry[] }) {
