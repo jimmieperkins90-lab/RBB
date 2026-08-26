@@ -135,7 +135,7 @@ export default async function MatchupsPage({
         <div className="bg-plate border-2 border-coffee rounded-lg shadow-[4px_4px_0_#2B1B12] px-4 py-3 flex flex-wrap items-center gap-2 justify-center">
           <span className="font-display text-lg text-gravy mr-2">SEASON</span>
           {seasons.map((y) => (
-            
+<a            
               key={y}
               href={`/matchups?year=${y}`}
               className={`px-3 py-1 rounded font-mono text-sm font-semibold border-2 transition-colors ${
@@ -151,7 +151,7 @@ export default async function MatchupsPage({
       <section className="max-w-6xl mx-auto px-5 mt-4 flex flex-wrap items-center justify-center gap-3">
         <div className="flex flex-wrap items-center gap-1.5 justify-center">
           {weeks.map((w) => (
-            
+<a            
               key={w}
               href={`/matchups?year=${year}&week=${w}`}
               className={`w-9 h-9 flex items-center justify-center rounded-full font-mono text-xs font-bold border-2 transition-colors ${
@@ -163,7 +163,7 @@ export default async function MatchupsPage({
           ))}
         </div>
         {hasPlayoffWeek && (
-          
+<a          
             href={`/matchups/bracket?year=${year}`}
             className="px-4 py-2 rounded-full bg-coffee text-cream font-mono text-xs font-bold uppercase tracking-wide hover:bg-gravy transition-colors"
           >
