@@ -6,7 +6,7 @@ import HeadToHead from "./HeadToHead";
 
 type Season = { year: number; num_teams: number };
 type Manager = { id: number; name: string };
-type TeamSeason = { manager_id: number; year: number; final_place: string | null };
+type TeamSeason = { manager_id: number; year: number; final_place: string | null; regular_season_place: string | null };
 type Matchup = {
   year: number;
   week: number;
@@ -71,7 +71,7 @@ export default function HistoryPage() {
         supabase.from("seasons").select("year, num_teams").order("year", { ascending: false }),
         supabase.from("managers").select("id, name").order("name", { ascending: true }),
         fetchAllRows<TeamSeason>((from, to) =>
-          supabase.from("team_seasons").select("manager_id, year, final_place").range(from, to)
+          supabase.from("team_seasons").select("manager_id, year, final_place, regular_season_place").range(from, to)
         ),
         fetchAllRows<Matchup>((from, to) =>
           supabase
@@ -111,7 +111,7 @@ export default function HistoryPage() {
   }, [matchups, yearFilter, teamCountFilter, seasonType, yearToTeams]);
 
   // Year/team-size filtered, but NOT game-type filtered — used for career-identity stats
-  // (playoff appearances, regular season titles) that shouldn't disappear when Game Type = Regular/Playoffs.
+  // (playoff appearances) that shouldn't disappear when Game Type = Regular/Playoffs.
   const yearScopedMatchups = useMemo(() => {
     return matchups.filter((r) => {
       if (yearFilter !== "all" && r.year !== yearFilter) return false;
@@ -174,17 +174,13 @@ export default function HistoryPage() {
   }, [yearScopedMatchups]);
 
   const regularSeasonTitleCounts = useMemo(() => {
-    const seen = new Set<string>();
     const counts = new Map<number, number>();
-    yearScopedMatchups.forEach((r) => {
-      if (r.seed !== 1) return;
-      const key = `${r.year}-${r.manager_id}`;
-      if (seen.has(key)) return;
-      seen.add(key);
+    filteredTeamSeasons.forEach((r) => {
+      if (r.regular_season_place !== "1st") return;
       counts.set(r.manager_id, (counts.get(r.manager_id) ?? 0) + 1);
     });
     return counts;
-  }, [yearScopedMatchups]);
+  }, [filteredTeamSeasons]);
 
   const careerTable = useMemo(() => {
     const career = new Map<number, { w: number; l: number; pf: number; games: number }>();
