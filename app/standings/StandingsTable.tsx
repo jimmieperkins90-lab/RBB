@@ -43,7 +43,7 @@ export default function StandingsTable({
   const [loadingManagerId, setLoadingManagerId] = useState<number | null>(null);
 
   const [openGameKey, setOpenGameKey] = useState<string | null>(null);
- const [rostersByGameKey, setRostersByGameKey] = useState<Record<string, { home: RosterEntry[]; away: RosterEntry[]; homeName: string; awayName: string }>>({});
+  const [rostersByGameKey, setRostersByGameKey] = useState<Record<string, { home: RosterEntry[]; away: RosterEntry[]; homeName: string; awayName: string }>>({});
   const [loadingGameKey, setLoadingGameKey] = useState<string | null>(null);
 
   async function toggleManager(managerId: number) {
@@ -174,17 +174,20 @@ export default function StandingsTable({
                                   e.stopPropagation();
                                   toggleGame(t.manager_id, t.managerName, g);
                                 }}
-                                className="flex items-center justify-between px-3 py-1.5 rounded font-mono text-xs bg-plate border border-biscuit cursor-pointer hover:border-burnt transition-colors"
+                                className="grid grid-cols-[64px_1fr_92px_16px] items-center gap-2 px-3 py-1.5 rounded font-mono text-xs bg-plate border border-biscuit cursor-pointer hover:border-burnt transition-colors"
                               >
-                                <span className="text-gravy/70">
+                                <span className="text-gravy/70 whitespace-nowrap">
                                   Wk {g.week}
                                   {g.time_of_season !== "Regular" ? ` \u00b7 ${g.time_of_season}` : ""}
                                 </span>
-                                <span className="text-coffee font-semibold">vs {g.opponentName}</span>
-                                <span className={g.win ? "text-carolina font-bold" : "text-burnt font-bold"}>
-                                  {g.score.toFixed(1)} - {g.oppScore.toFixed(1)}
+                                <span className="text-coffee font-semibold truncate">vs {g.opponentName}</span>
+                                <span className="text-right whitespace-nowrap">
+                                  <span className={g.win ? "text-carolina font-bold" : "text-burnt font-bold"}>
+                                    {g.score.toFixed(1)}
+                                  </span>
+                                  <span className="text-gravy/50"> - {g.oppScore.toFixed(1)}</span>
                                 </span>
-                                <span className="text-gravy/40">{isGameOpen ? "\u25b2" : "\u25bc"}</span>
+                                <span className="text-gravy/40 text-center">{isGameOpen ? "\u25b2" : "\u25bc"}</span>
                               </div>
                               {isGameOpen && (
                                 <div className="px-3 py-3 border border-t-0 border-biscuit rounded-b bg-cream/80">
@@ -223,20 +226,20 @@ function RosterList({ label, entries }: { label: string; entries: RosterEntry[] 
       <div className="font-mono text-[11px] uppercase text-gravy/60 mb-1">{label}</div>
       <div className="space-y-0.5">
         {starters.map((p, i) => (
-          <div key={i} className="flex justify-between font-mono text-xs">
-            <span className="text-gravy/50 w-10">{p.lineup_pos}</span>
-            <span className="text-coffee flex-1">{p.player_name}</span>
-            <span className="text-burnt font-semibold">{Number(p.points).toFixed(1)}</span>
+          <div key={i} className="grid grid-cols-[36px_1fr_44px] items-center gap-1 font-mono text-xs">
+            <span className="text-gravy/50">{p.lineup_pos}</span>
+            <span className="text-coffee truncate">{p.player_name}</span>
+            <span className="text-burnt font-semibold text-right">{Number(p.points).toFixed(1)}</span>
           </div>
         ))}
         {bench.length > 0 && (
           <>
             <div className="font-mono text-[10px] uppercase text-gravy/40 mt-1.5">Bench / IR</div>
             {bench.map((p, i) => (
-              <div key={i} className="flex justify-between font-mono text-xs opacity-60">
-                <span className="text-gravy/50 w-10">{p.lineup_pos}</span>
-                <span className="text-coffee flex-1">{p.player_name}</span>
-                <span className="text-burnt font-semibold">{Number(p.points).toFixed(1)}</span>
+              <div key={i} className="grid grid-cols-[36px_1fr_44px] items-center gap-1 font-mono text-xs opacity-60">
+                <span className="text-gravy/50">{p.lineup_pos}</span>
+                <span className="text-coffee truncate">{p.player_name}</span>
+                <span className="text-burnt font-semibold text-right">{Number(p.points).toFixed(1)}</span>
               </div>
             ))}
           </>
