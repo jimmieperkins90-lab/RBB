@@ -43,9 +43,7 @@ export default function StandingsTable({
   const [loadingManagerId, setLoadingManagerId] = useState<number | null>(null);
 
   const [openGameKey, setOpenGameKey] = useState<string | null>(null);
-  const [rostersByGameKey, setRostersByGameKey] = useState
-    Record<string, { home: RosterEntry[]; away: RosterEntry[]; homeName: string; awayName: string }>
-  >({});
+ const [rostersByGameKey, setRostersByGameKey] = useState<Record<string, { home: RosterEntry[]; away: RosterEntry[]; homeName: string; awayName: string }>>({});
   const [loadingGameKey, setLoadingGameKey] = useState<string | null>(null);
 
   async function toggleManager(managerId: number) {
