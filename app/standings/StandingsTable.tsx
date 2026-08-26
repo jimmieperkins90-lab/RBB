@@ -174,15 +174,17 @@ export default function StandingsTable({
                                   e.stopPropagation();
                                   toggleGame(t.manager_id, t.managerName, g);
                                 }}
-                                className="grid grid-cols-[64px_1fr_92px_16px] items-center gap-2 px-3 py-1.5 rounded font-mono text-xs bg-plate border border-biscuit cursor-pointer hover:border-burnt transition-colors"
+                                className="grid grid-cols-[48px_1fr_92px_16px] items-center gap-2 px-3 py-1.5 rounded font-mono text-xs bg-plate border border-biscuit cursor-pointer hover:border-burnt transition-colors"
                               >
-                                <span className="text-gravy/70 whitespace-nowrap">
-                                  Wk {g.week}
-                                  {g.time_of_season !== "Regular" ? ` \u00b7 ${g.time_of_season}` : ""}
+                                <span className="text-gravy/70 whitespace-nowrap">Wk {g.week}</span>
+                                <span className="text-coffee font-semibold truncate">
+                                  vs {g.opponentName}
+                                  {g.time_of_season !== "Regular" && (
+                                    <span className="text-gravy/50 font-normal"> &middot; {g.time_of_season}</span>
+                                  )}
                                 </span>
-                                <span className="text-coffee font-semibold truncate">vs {g.opponentName}</span>
                                 <span className="text-right whitespace-nowrap">
-                                  <span className={g.win ? "text-carolina font-bold" : "text-burnt font-bold"}>
+                                  <span className={g.win ? "text-green-700 font-bold" : "text-burnt font-bold"}>
                                     {g.score.toFixed(1)}
                                   </span>
                                   <span className="text-gravy/50"> - {g.oppScore.toFixed(1)}</span>
