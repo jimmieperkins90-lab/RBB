@@ -85,8 +85,8 @@ export default function GameCard({
         </span>
       </button>
       <div className="divide-y divide-biscuit/60">
-        <ScoreRow name={game.homeName} score={game.homeScore} proj={game.homeProj} winner={game.homeWin} />
-        <ScoreRow name={game.awayName} score={game.awayScore} proj={game.awayProj} winner={!game.homeWin} />
+        <ScoreRow name={game.homeName} record={game.homeRecord} score={game.homeScore} proj={game.homeProj} winner={game.homeWin} />
+        <ScoreRow name={game.awayName} record={game.awayRecord} score={game.awayScore} proj={game.awayProj} winner={!game.homeWin} />
       </div>
 
       {isOpen && (
@@ -144,11 +144,13 @@ function MiniPlayerList({ rows, muted = false }: { rows: LineupRow[]; muted?: bo
 
 function ScoreRow({
   name,
+  record,
   score,
   proj,
   winner,
 }: {
   name: string;
+  record?: string | null;
   score: number;
   proj: number;
   winner: boolean;
@@ -157,6 +159,7 @@ function ScoreRow({
     <div className={`flex items-center justify-between px-4 py-3 ${winner ? "bg-goldenrod/10" : ""}`}>
       <span className={`font-semibold ${winner ? "text-coffee" : "text-gravy/70"}`}>
         {name}
+        {record && <span className="ml-1.5 font-mono text-[10px] font-normal text-gravy/40">({record})</span>}
         {winner && <span className="ml-2 text-[10px] text-burnt font-mono">W</span>}
       </span>
       <div className="text-right">
