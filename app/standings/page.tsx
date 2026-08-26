@@ -41,9 +41,12 @@ async function getStandings(year: number) {
     record: record.get(t.manager_id) ?? { w: 0, l: 0, pf: 0 },
   }));
 
-  const hasFinal = rows.some((r) => r.final_place);
+  // Season is "complete" once every team has a recorded final finish. Until then,
+  // the Finish column is replaced with live Playoff Odds (see getPlayoffOdds below).
+  const seasonComplete = rows.length > 0 && rows.every((r) => r.final_place);
+
   rows.sort((a, b) => {
-    if (hasFinal) {
+    if (seasonComplete) {
       const fa = ordinalToNumber(a.final_place);
       const fb = ordinalToNumber(b.final_place);
       if (fa !== fb) return fa - fb;
@@ -52,7 +55,17 @@ async function getStandings(year: number) {
     return b.record.pf - a.record.pf;
   });
 
-  return rows;
+  return { rows, seasonComplete };
+}
+
+// Empty (or missing entirely) until playoff odds have actually been computed and
+// loaded for this season — the table just falls back to "—" until then.
+async function getPlayoffOdds(year: number) {
+  const { data } = await supabase
+    .from("playoff_odds")
+    .select("manager_id, playoff_pct, as_of_week")
+    .eq("year", year);
+  return data ?? [];
 }
 
 export default async function StandingsPage({
@@ -63,7 +76,12 @@ export default async function StandingsPage({
   const seasons = await getSeasons();
   const latestYear = seasons[0]?.year ?? 2025;
   const year = searchParams.year ? parseInt(searchParams.year, 10) : latestYear;
-  const standings = await getStandings(year);
+
+  const [{ rows: standings, seasonComplete }, playoffOdds] = await Promise.all([
+    getStandings(year),
+    getPlayoffOdds(year),
+  ]);
+
   const hasDivisions = standings.some((r) => r.division);
 
   return (
@@ -111,7 +129,13 @@ export default async function StandingsPage({
         )}
 
         {standings.length > 0 && (
-          <StandingsTable standings={standings} year={year} hasDivisions={hasDivisions} />
+          <StandingsTable
+            standings={standings}
+            year={year}
+            hasDivisions={hasDivisions}
+            seasonComplete={seasonComplete}
+            playoffOdds={playoffOdds}
+          />
         )}
       </section>
     </div>
