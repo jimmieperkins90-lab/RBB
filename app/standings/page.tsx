@@ -73,7 +73,7 @@ export default async function StandingsPage({
         <div className="relative max-w-6xl mx-auto px-5 py-16 md:py-20 text-center">
           <p className="font-mono uppercase tracking-[0.3em] text-burnt text-xs mb-4">Open since 2016 &middot; Ten seasons and counting</p>
           <h1 className="font-display text-5xl md:text-7xl leading-none chalk-shadow">
-            THE R.B.B. LEAGUE
+            THE RISKY BISKIES
           </h1>
           <p className="mt-4 text-cream/70 max-w-xl mx-auto font-body">
             Standings, matchups, lineups, and draft history &mdash; served up like the daily special.
