@@ -62,6 +62,7 @@ export default function HistoryPage() {
   const [yearFilter, setYearFilter] = useState<"all" | number>("all");
   const [teamCountFilter, setTeamCountFilter] = useState<"all" | 10 | 12>(12);
   const [seasonType, setSeasonType] = useState<"all" | "regular" | "playoffs">("all");
+  const [individualManagerId, setIndividualManagerId] = useState<number | undefined>(undefined);
 
   useEffect(() => {
     let cancelled = false;
@@ -260,6 +261,47 @@ export default function HistoryPage() {
     return { topScores, lowScores, topMargins, topWinsSeasons, topPointsSeasons };
   }, [filteredMatchups]);
 
+  // Same category set as League Records, scoped down to one manager's own games/seasons.
+  const individualRecords = useMemo(() => {
+    if (!individualManagerId) return null;
+
+    const ownMatchups = filteredMatchups.filter((r) => r.manager_id === individualManagerId);
+    const topScores = [...ownMatchups].sort((a, b) => b.score - a.score).slice(0, 3);
+    const lowScores = [...ownMatchups].sort((a, b) => a.score - b.score).slice(0, 3);
+
+    const pairMap = new Map<string, Matchup[]>();
+    filteredMatchups.forEach((r) => {
+      const key = [r.year, r.time_of_season, r.week, Math.min(r.manager_id, r.opponent_manager_id), Math.max(r.manager_id, r.opponent_manager_id)].join("-");
+      if (!pairMap.has(key)) pairMap.set(key, []);
+      pairMap.get(key)!.push(r);
+    });
+    const winMargins: { year: number; opponent: number; margin: number }[] = [];
+    pairMap.forEach((pair) => {
+      if (pair.length < 2) return;
+      const [a, b] = pair;
+      const mine = a.manager_id === individualManagerId ? a : b.manager_id === individualManagerId ? b : null;
+      if (!mine || !mine.win) return;
+      const opp = mine === a ? b : a;
+      winMargins.push({ year: mine.year, opponent: opp.manager_id, margin: Math.abs(Number(mine.score) - Number(opp.score)) });
+    });
+    winMargins.sort((a, b) => b.margin - a.margin);
+    const topMargins = winMargins.slice(0, 3);
+
+    const seasonMap = new Map<number, { year: number; w: number; l: number; pf: number }>();
+    ownMatchups.forEach((r) => {
+      if (!seasonMap.has(r.year)) seasonMap.set(r.year, { year: r.year, w: 0, l: 0, pf: 0 });
+      const s = seasonMap.get(r.year)!;
+      if (r.win) s.w += 1;
+      else s.l += 1;
+      s.pf += Number(r.score ?? 0);
+    });
+    const seasonRows = Array.from(seasonMap.values());
+    const topWinsSeasons = [...seasonRows].sort((a, b) => b.w - a.w || b.pf - a.pf).slice(0, 3);
+    const topPointsSeasons = [...seasonRows].sort((a, b) => b.pf - a.pf).slice(0, 3);
+
+    return { topScores, lowScores, topMargins, topWinsSeasons, topPointsSeasons };
+  }, [filteredMatchups, individualManagerId]);
+
   return (
     <div>
       <section className="relative overflow-hidden bg-coffee text-cream">
@@ -421,6 +463,68 @@ export default function HistoryPage() {
                 }))}
               />
             </div>
+          </section>
+
+          <section className="max-w-5xl mx-auto px-5 pb-14">
+            <div className="text-center mb-8">
+              <h2 className="font-display text-4xl text-gravy chalk-shadow">INDIVIDUAL RECORDS</h2>
+              <div className="menu-divider w-40 mx-auto mt-3" />
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5 justify-center mb-8">
+              {managers.map((m) => (
+                <button
+                  key={m.id}
+                  onClick={() => setIndividualManagerId(m.id)}
+                  className={`px-3 py-1.5 rounded-full font-mono text-xs font-semibold border-2 transition-colors ${
+                    m.id === individualManagerId ? "bg-coffee text-cream border-coffee" : "bg-transparent text-gravy border-biscuit hover:border-coffee"
+                  }`}
+                >
+                  {m.name}
+                </button>
+              ))}
+            </div>
+            {!individualManagerId && (
+              <p className="text-center font-body text-gravy/60">Pick a manager above to see their personal records.</p>
+            )}
+            {individualManagerId && individualRecords && (
+              <div className="grid sm:grid-cols-2 gap-5">
+                <RecordCard
+                  title="Highest Single Score"
+                  entries={individualRecords.topScores.map((g) => ({
+                    value: Number(g.score).toFixed(1),
+                    detail: `${g.year} \u00b7 vs ${managerName.get(g.opponent_manager_id)}`,
+                  }))}
+                />
+                <RecordCard
+                  title="Lowest Single Score"
+                  entries={individualRecords.lowScores.map((g) => ({
+                    value: Number(g.score).toFixed(1),
+                    detail: `${g.year} \u00b7 vs ${managerName.get(g.opponent_manager_id)}`,
+                  }))}
+                />
+                <RecordCard
+                  title="Largest Win Margin"
+                  entries={individualRecords.topMargins.map((m) => ({
+                    value: `${m.margin.toFixed(1)} pts`,
+                    detail: `def. ${managerName.get(m.opponent)} \u00b7 ${m.year}`,
+                  }))}
+                />
+                <RecordCard
+                  title="Most Wins, Single Season"
+                  entries={individualRecords.topWinsSeasons.map((s) => ({
+                    value: `${s.w}-${s.l}`,
+                    detail: `${s.year}`,
+                  }))}
+                />
+                <RecordCard
+                  title="Most Points, Single Season"
+                  entries={individualRecords.topPointsSeasons.map((s) => ({
+                    value: Number(s.pf).toFixed(1),
+                    detail: `${s.year}`,
+                  }))}
+                />
+              </div>
+            )}
           </section>
 
           <section className="max-w-3xl mx-auto px-5 pb-16">
