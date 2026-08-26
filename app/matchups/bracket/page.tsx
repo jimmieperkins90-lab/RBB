@@ -176,6 +176,14 @@ export default async function BracketPage({
       </section>
 
       <section className="max-w-6xl mx-auto px-5 -mt-7 relative z-10">
+        <div className="flex justify-center mb-3">
+          <a
+            href={`/matchups?year=${year}`}
+            className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-coffee text-cream font-mono text-xs font-bold uppercase tracking-wide hover:bg-gravy transition-colors"
+          >
+            &larr; Back to Matchups
+          </a>
+        </div>
         <div className="bg-plate border-2 border-coffee rounded-lg shadow-[4px_4px_0_#2B1B12] px-4 py-3 flex flex-wrap items-center gap-2 justify-center">
           <span className="font-display text-lg text-gravy mr-2">SEASON</span>
           {seasons.map((y) => (
