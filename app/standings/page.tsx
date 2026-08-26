@@ -85,7 +85,7 @@ export default async function StandingsPage({
         <div className="bg-plate border-2 border-coffee rounded-lg shadow-[4px_4px_0_#2B1B12] px-4 py-3 flex flex-wrap items-center gap-2 justify-center">
           <span className="font-display text-lg text-gravy mr-2">SEASON</span>
           {seasons.map((s) => (
-            
+<a            
               key={s.year}
               href={`/standings?year=${s.year}`}
               className={`px-3 py-1 rounded font-mono text-sm font-semibold border-2 transition-colors ${
