@@ -31,6 +31,26 @@ function formatYears(years: number[] | undefined): string {
   return [...years].sort((a, b) => a - b).map((y) => `'${String(y).slice(2)}`).join(", ");
 }
 
+// Pages through a Supabase query in chunks so results are never silently
+// truncated by the project's "Max Rows" API setting, no matter how large
+// the table grows in future seasons.
+async function fetchAllRows<T>(
+  buildQuery: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: any }>,
+  pageSize = 1000
+): Promise<T[]> {
+  let all: T[] = [];
+  let from = 0;
+  for (;;) {
+    const { data, error } = await buildQuery(from, from + pageSize - 1);
+    if (error) throw error;
+    const rows = data ?? [];
+    all = all.concat(rows);
+    if (rows.length < pageSize) break;
+    from += pageSize;
+  }
+  return all;
+}
+
 export default function HistoryPage() {
   const [seasons, setSeasons] = useState<Season[]>([]);
   const [managers, setManagers] = useState<Manager[]>([]);
@@ -44,24 +64,38 @@ export default function HistoryPage() {
   const [seasonType, setSeasonType] = useState<"all" | "regular" | "playoffs">("all");
 
   useEffect(() => {
-    Promise.all([
-      supabase.from("seasons").select("year, num_teams").order("year", { ascending: false }),
-      supabase.from("managers").select("id, name").order("name", { ascending: true }),
-      supabase.from("team_seasons").select("manager_id, year, final_place").range(0, 1999),
-      supabase
-        .from("matchups")
-        .select("year, week, manager_id, opponent_manager_id, score, win, game_played, time_of_season, round_game, seed")
-        .eq("game_played", true)
-        .range(0, 4999),
-      supabase.from("championships").select("year, manager_id").eq("type", "league"),
-    ]).then(([s, m, ts, mu, ch]) => {
+    let cancelled = false;
+
+    async function loadAll() {
+      const [s, m, ts, mu, ch] = await Promise.all([
+        supabase.from("seasons").select("year, num_teams").order("year", { ascending: false }),
+        supabase.from("managers").select("id, name").order("name", { ascending: true }),
+        fetchAllRows<TeamSeason>((from, to) =>
+          supabase.from("team_seasons").select("manager_id, year, final_place").range(from, to)
+        ),
+        fetchAllRows<Matchup>((from, to) =>
+          supabase
+            .from("matchups")
+            .select("year, week, manager_id, opponent_manager_id, score, win, game_played, time_of_season, round_game, seed")
+            .eq("game_played", true)
+            .range(from, to)
+        ),
+        supabase.from("championships").select("year, manager_id").eq("type", "league"),
+      ]);
+
+      if (cancelled) return;
       setSeasons((s.data ?? []) as Season[]);
       setManagers((m.data ?? []) as Manager[]);
-      setTeamSeasons((ts.data ?? []) as TeamSeason[]);
-      setMatchups((mu.data ?? []) as Matchup[]);
+      setTeamSeasons(ts as TeamSeason[]);
+      setMatchups(mu as Matchup[]);
       setChampionships((ch.data ?? []) as Championship[]);
       setLoading(false);
-    });
+    }
+
+    loadAll();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const yearToTeams = useMemo(() => new Map(seasons.map((s) => [s.year, s.num_teams])), [seasons]);
@@ -96,7 +130,6 @@ export default function HistoryPage() {
 
   const managerName = useMemo(() => new Map(managers.map((m) => [m.id, m.name])), [managers]);
 
-  // Finish placements by manager id -> place -> years[]
   const finishMapByManager = useMemo(() => {
     const byManager = new Map<number, Map<string, number[]>>();
     filteredTeamSeasons.forEach((r) => {
@@ -109,7 +142,6 @@ export default function HistoryPage() {
     return byManager;
   }, [filteredTeamSeasons]);
 
-  // Every distinct finish place present under current filters, sorted 1st -> last, for dynamic columns
   const allPlaces = useMemo(() => {
     const set = new Set<string>();
     filteredTeamSeasons.forEach((r) => {
@@ -118,7 +150,6 @@ export default function HistoryPage() {
     return Array.from(set).sort((a, b) => ordinalToNumber(a) - ordinalToNumber(b));
   }, [filteredTeamSeasons]);
 
-  // Seasons played per manager under current year/team-size filters (also used as "Years in League")
   const seasonsPlayedCounts = useMemo(() => {
     const byManager = new Map<number, Set<number>>();
     filteredTeamSeasons.forEach((r) => {
@@ -130,7 +161,6 @@ export default function HistoryPage() {
     return counts;
   }, [filteredTeamSeasons]);
 
-  // Playoff appearances (time_of_season === "Playoff" only — TB is the consolation bracket)
   const playoffAppearanceCounts = useMemo(() => {
     const byManagerYears = new Map<number, Set<number>>();
     yearScopedMatchups.forEach((r) => {
@@ -143,7 +173,6 @@ export default function HistoryPage() {
     return counts;
   }, [yearScopedMatchups]);
 
-  // Regular season titles: manager held the #1 seed that year
   const regularSeasonTitleCounts = useMemo(() => {
     const seen = new Set<string>();
     const counts = new Map<number, number>();
@@ -157,7 +186,6 @@ export default function HistoryPage() {
     return counts;
   }, [yearScopedMatchups]);
 
-  // Career records
   const careerTable = useMemo(() => {
     const career = new Map<number, { w: number; l: number; pf: number; games: number }>();
     filteredMatchups.forEach((r) => {
@@ -197,7 +225,6 @@ export default function HistoryPage() {
       .sort((a, b) => b.w - a.w);
   }, [filteredMatchups, managers, championships, yearFilter, finishMapByManager, regularSeasonTitleCounts, seasonsPlayedCounts, playoffAppearanceCounts]);
 
-  // League records
   const leagueRecords = useMemo(() => {
     const bestGame = filteredMatchups.reduce((max, r) => (r.score > (max?.score ?? -1) ? r : max), null as Matchup | null);
     const worstGame = filteredMatchups.reduce((min, r) => (r.score < (min?.score ?? Infinity) ? r : min), null as Matchup | null);
@@ -243,7 +270,6 @@ export default function HistoryPage() {
     return { bestGame, worstGame, largestMargin, mostWinsSeason, mostPointsSeason };
   }, [filteredMatchups]);
 
-  // Finish history
   const finishHistory = useMemo(() => {
     return managers
       .map((m) => {
@@ -267,7 +293,6 @@ export default function HistoryPage() {
         </div>
       </section>
 
-      {/* Filters */}
       <section className="max-w-6xl mx-auto px-5 -mt-7 relative z-10">
         <div className="bg-plate border-2 border-coffee rounded-lg shadow-[4px_4px_0_#2B1B12] px-4 py-3 flex flex-wrap items-center gap-2 justify-center">
           <span className="font-display text-lg text-gravy mr-2">SEASON</span>
@@ -332,7 +357,6 @@ export default function HistoryPage() {
 
       {!loading && (
         <>
-          {/* Career records */}
           <section className="max-w-6xl mx-auto px-5 py-14">
             <div className="text-center mb-8">
               <h2 className="font-display text-4xl text-gravy chalk-shadow">ALL-TIME RECORDS</h2>
@@ -378,7 +402,6 @@ export default function HistoryPage() {
             </div>
           </section>
 
-          {/* League records */}
           <section className="max-w-4xl mx-auto px-5 pb-14">
             <div className="text-center mb-8">
               <h2 className="font-display text-4xl text-gravy chalk-shadow">LEAGUE RECORDS</h2>
@@ -417,7 +440,6 @@ export default function HistoryPage() {
             </div>
           </section>
 
-          {/* Finish history */}
           <section className="max-w-4xl mx-auto px-5 pb-14">
             <div className="text-center mb-8">
               <h2 className="font-display text-4xl text-gravy chalk-shadow">FINISH HISTORY</h2>
@@ -443,7 +465,6 @@ export default function HistoryPage() {
             </div>
           </section>
 
-          {/* Head-to-head */}
           <section className="max-w-3xl mx-auto px-5 pb-16">
             <div className="text-center mb-8">
               <h2 className="font-display text-4xl text-gravy chalk-shadow">HEAD-TO-HEAD</h2>
