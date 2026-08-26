@@ -227,15 +227,13 @@ export default function LineupsPage() {
   // Load weeks + managers when year changes
   useEffect(() => {
     if (!year) return;
-    supabase
-      .from("lineups")
-      .select("week")
-      .eq("year", year)
-      .then(({ data }) => {
-        const ws = Array.from(new Set((data ?? []).map((r: any) => r.week as number))).sort((a, b) => a - b);
-        setWeeks(ws);
-        setWeek((cur) => (cur && ws.includes(cur) ? cur : ws[ws.length - 1]));
-      });
+    fetchAllRows<{ week: number }>((from, to) =>
+      supabase.from("lineups").select("week").eq("year", year).range(from, to)
+    ).then((rows) => {
+      const ws = Array.from(new Set(rows.map((r) => r.week))).sort((a, b) => a - b);
+      setWeeks(ws);
+      setWeek((cur) => (cur && ws.includes(cur) ? cur : ws[ws.length - 1]));
+    });
     supabase
       .from("team_seasons")
       .select("manager_id, managers(name)")
@@ -484,11 +482,7 @@ export default function LineupsPage() {
               </div>
             )}
             {!loading && viewMode === "season" && (
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {managers.map((m) => (
-                  <SeasonCard key={m.id} name={m.name} weeks={allSeasonRosters?.get(m.id) ?? null} />
-                ))}
-              </div>
+              <AllManagersSeasonGrid managers={managers} dataByManager={allSeasonRosters} />
             )}
           </>
         )}
@@ -527,6 +521,71 @@ export default function LineupsPage() {
           </>
         )}
       </section>
+    </div>
+  );
+}
+
+function AllManagersSeasonGrid({
+  managers,
+  dataByManager,
+}: {
+  managers: Manager[];
+  dataByManager: Map<number, WeekRoster[]> | null;
+}) {
+  const weekNumbers = useMemo(() => {
+    const set = new Set<number>();
+    dataByManager?.forEach((weeksArr) => weeksArr.forEach((w) => set.add(w.week)));
+    return Array.from(set).sort((a, b) => a - b);
+  }, [dataByManager]);
+
+  return (
+    <div className="relative overflow-auto rounded-lg border-2 border-coffee shadow-[6px_6px_0_#2B1B12]" style={{ maxHeight: "75vh" }}>
+      <div className="grid" style={{ gridTemplateColumns: `100px repeat(${managers.length}, minmax(260px, 1fr))` }}>
+        <div className="sticky top-0 left-0 z-30 bg-coffee text-cream flex items-center justify-center font-mono text-xs font-bold uppercase px-2 py-3 border-b-2 border-r-2 border-burnt">
+          Week
+        </div>
+        {managers.map((m) => (
+          <div
+            key={m.id}
+            className="sticky top-0 z-20 bg-coffee text-cream flex items-center justify-center font-display text-lg px-3 py-3 border-b-2 border-r border-burnt/50 whitespace-nowrap"
+          >
+            {m.name}
+          </div>
+        ))}
+
+        {weekNumbers.map((wk) => (
+          <div key={wk} className="contents">
+            <div className="sticky left-0 z-10 bg-biscuit flex items-center justify-center font-mono text-xs font-bold text-gravy border-b-2 border-r-2 border-coffee px-2 py-3">
+              WK {wk}
+            </div>
+            {managers.map((m) => {
+              const weekData = dataByManager?.get(m.id)?.find((w) => w.week === wk);
+              return (
+                <div key={m.id} className="border-b border-r border-biscuit/60 bg-plate">
+                  {!weekData && <p className="text-center font-mono text-xs text-gravy/40 py-4">\u2014</p>}
+                  {weekData && (
+                    <div>
+                      <div className="px-3 py-1.5 bg-burnt/90 text-cream flex items-center justify-between">
+                        <span className="font-mono text-[10px] font-bold uppercase">Total</span>
+                        <span className="font-mono text-xs font-bold">
+                          {weekData.total.toFixed(1)} <span className="text-cream/60">/ {weekData.totalProj.toFixed(1)}</span>
+                        </span>
+                      </div>
+                      <PlayerTable rows={weekData.starters} />
+                      {weekData.bench.length > 0 && (
+                        <>
+                          <div className="px-3 py-1 bg-biscuit/50 font-mono text-[10px] font-bold uppercase text-gravy/80">Bench</div>
+                          <PlayerTable rows={weekData.bench} muted />
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
