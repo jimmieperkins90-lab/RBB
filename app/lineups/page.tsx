@@ -540,7 +540,7 @@ function AllManagersSeasonGrid({
 
   return (
     <div className="relative overflow-auto rounded-lg border-2 border-coffee shadow-[6px_6px_0_#2B1B12]" style={{ maxHeight: "75vh" }}>
-      <div className="grid" style={{ gridTemplateColumns: `100px repeat(${managers.length}, minmax(260px, 1fr))` }}>
+      <div className="grid" style={{ gridTemplateColumns: `90px repeat(${managers.length}, minmax(260px, 1fr))` }}>
         <div className="sticky top-0 left-0 z-30 bg-coffee text-cream flex items-center justify-center font-mono text-xs font-bold uppercase px-2 py-3 border-b-2 border-r-2 border-burnt">
           Week
         </div>
@@ -555,8 +555,13 @@ function AllManagersSeasonGrid({
 
         {weekNumbers.map((wk) => (
           <div key={wk} className="contents">
-            <div className="sticky left-0 z-10 bg-biscuit flex items-center justify-center font-mono text-xs font-bold text-gravy border-b-2 border-r-2 border-coffee px-2 py-3">
-              WK {wk}
+            <div className="sticky left-0 z-10 bg-biscuit flex items-center justify-center border-b-2 border-r-2 border-coffee py-6">
+              <span
+                className="font-display text-2xl text-coffee tracking-wide chalk-shadow"
+                style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
+              >
+                WK {wk}
+              </span>
             </div>
             {managers.map((m) => {
               const weekData = dataByManager?.get(m.id)?.find((w) => w.week === wk);
