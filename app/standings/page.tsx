@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import StandingsTable from "./StandingsTable";
 
 export const revalidate = 300;
 
@@ -47,7 +48,6 @@ async function getStandings(year: number) {
       const fb = ordinalToNumber(b.final_place);
       if (fa !== fb) return fa - fb;
     }
-    // Fall back to record for seasons without a final placement yet (in progress)
     if (b.record.w !== a.record.w) return b.record.w - a.record.w;
     return b.record.pf - a.record.pf;
   });
@@ -55,7 +55,7 @@ async function getStandings(year: number) {
   return rows;
 }
 
-export default async function HomePage({
+export default async function StandingsPage({
   searchParams,
 }: {
   searchParams: { year?: string };
@@ -68,7 +68,6 @@ export default async function HomePage({
 
   return (
     <div>
-      {/* Hero */}
       <section className="relative overflow-hidden bg-coffee text-cream">
         <div className="absolute inset-0 bg-diner-stripe opacity-[0.07]" />
         <div className="relative max-w-6xl mx-auto px-5 py-16 md:py-20 text-center">
@@ -82,12 +81,11 @@ export default async function HomePage({
         </div>
       </section>
 
-      {/* Season selector */}
       <section className="max-w-6xl mx-auto px-5 -mt-7 relative z-10">
         <div className="bg-plate border-2 border-coffee rounded-lg shadow-[4px_4px_0_#2B1B12] px-4 py-3 flex flex-wrap items-center gap-2 justify-center">
           <span className="font-display text-lg text-gravy mr-2">SEASON</span>
           {seasons.map((s) => (
-            <a
+            
               key={s.year}
               href={`/standings?year=${s.year}`}
               className={`px-3 py-1 rounded font-mono text-sm font-semibold border-2 transition-colors ${
@@ -102,7 +100,6 @@ export default async function HomePage({
         </div>
       </section>
 
-      {/* Standings menu boards */}
       <section className="max-w-6xl mx-auto px-5 py-14">
         <div className="text-center mb-10">
           <h2 className="font-display text-4xl text-gravy chalk-shadow">{year} STANDINGS</h2>
@@ -114,45 +111,7 @@ export default async function HomePage({
         )}
 
         {standings.length > 0 && (
-          <div className="max-w-3xl mx-auto relative bg-plate border-2 border-coffee rounded-lg shadow-[6px_6px_0_#2B1B12]">
-            <div className="pin-dot relative bg-burnt text-cream text-center py-3 rounded-t-md">
-              <h3 className="font-display text-2xl tracking-wide">FULL LEAGUE</h3>
-            </div>
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="font-mono uppercase text-[11px] text-gravy/70 border-b border-biscuit">
-                  <th className="text-center py-2 font-semibold w-10">#</th>
-                  <th className="text-left py-2 font-semibold">Manager</th>
-                  {hasDivisions && <th className="text-left py-2 font-semibold">Division</th>}
-                  <th className="text-center py-2 font-semibold">Record</th>
-                  <th className="text-center py-2 font-semibold">PF</th>
-                  <th className="text-center pr-4 py-2 font-semibold">Finish</th>
-                </tr>
-              </thead>
-              <tbody>
-                {standings.map((t, i) => (
-                  <tr
-                    key={t.manager_id}
-                    className={`border-b border-biscuit/60 last:border-0 ${
-                      t.made_finals ? "bg-goldenrod/10" : ""
-                    }`}
-                  >
-                    <td className="text-center py-2 font-mono text-gravy/60">{i + 1}</td>
-                    <td className="py-2 font-semibold text-coffee">
-                      {t.managerName}
-                      {t.made_finals && <span className="ml-2 text-[10px] text-burnt font-mono">FINALS</span>}
-                    </td>
-                    {hasDivisions && (
-                      <td className="py-2 font-mono text-xs text-gravy/70">{t.division ?? "\u2014"}</td>
-                    )}
-                    <td className="text-center py-2 font-mono">{t.record.w}-{t.record.l}</td>
-                    <td className="text-center py-2 font-mono">{t.record.pf.toFixed(1)}</td>
-                    <td className="text-center pr-4 py-2 font-mono text-burnt font-bold">{t.final_place ?? "\u2014"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <StandingsTable standings={standings} year={year} hasDivisions={hasDivisions} />
         )}
       </section>
     </div>
