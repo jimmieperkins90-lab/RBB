@@ -31,6 +31,30 @@ function formatYears(years: number[] | undefined): string {
   return [...years].sort((a, b) => a - b).map((y) => `'${String(y).slice(2)}`).join(", ");
 }
 
+function formatYearRange(start: number, end: number): string {
+  return start === end ? `${start}` : `${start}\u2013${end}`;
+}
+
+type PlayoffRun = { managerId: number; type: "streak" | "drought"; length: number; startYear: number; endYear: number };
+
+// Splits a manager's participated years into consecutive runs of "made playoffs" (streak)
+// vs "missed playoffs" (drought). A gap in participated years (e.g. filtered out by the
+// League Size toggle) breaks a run rather than treating the years as adjacent.
+function computeRuns(managerId: number, years: number[], playoffYears: Set<number>): PlayoffRun[] {
+  const runs: PlayoffRun[] = [];
+  let i = 0;
+  while (i < years.length) {
+    const isPlayoff = playoffYears.has(years[i]);
+    let j = i;
+    while (j + 1 < years.length && years[j + 1] === years[j] + 1 && playoffYears.has(years[j + 1]) === isPlayoff) {
+      j++;
+    }
+    runs.push({ managerId, type: isPlayoff ? "streak" : "drought", length: j - i + 1, startYear: years[i], endYear: years[j] });
+    i = j + 1;
+  }
+  return runs;
+}
+
 // Pages through a Supabase query in chunks so results are never silently
 // truncated by the project's "Max Rows" API setting, no matter how large
 // the table grows in future seasons.
@@ -128,6 +152,44 @@ export default function HistoryPage() {
       return true;
     });
   }, [teamSeasons, yearFilter, teamCountFilter, yearToTeams]);
+
+  // Year/team-size scoped, but always Regular season only — used for the season-total
+  // records (wins/losses/points) so they aren't skewed by playoff/TB games, regardless
+  // of the page's Game Type filter.
+  const regularSeasonMatchups = useMemo(() => {
+    return yearScopedMatchups.filter((r) => r.time_of_season === "Regular");
+  }, [yearScopedMatchups]);
+
+  // Every year each manager actually fielded a team under the current Season/League Size
+  // filters, sorted ascending — the timeline playoff streaks/droughts are measured against.
+  const participatedYearsByManager = useMemo(() => {
+    const map = new Map<number, number[]>();
+    filteredTeamSeasons.forEach((r) => {
+      if (!map.has(r.manager_id)) map.set(r.manager_id, []);
+      map.get(r.manager_id)!.push(r.year);
+    });
+    map.forEach((years, id) => map.set(id, Array.from(new Set(years)).sort((a, b) => a - b)));
+    return map;
+  }, [filteredTeamSeasons]);
+
+  const playoffYearsByManager = useMemo(() => {
+    const map = new Map<number, Set<number>>();
+    yearScopedMatchups.forEach((r) => {
+      if (r.time_of_season !== "Playoff") return;
+      if (!map.has(r.manager_id)) map.set(r.manager_id, new Set());
+      map.get(r.manager_id)!.add(r.year);
+    });
+    return map;
+  }, [yearScopedMatchups]);
+
+  const allPlayoffRuns = useMemo(() => {
+    const runs: PlayoffRun[] = [];
+    participatedYearsByManager.forEach((years, managerId) => {
+      const playoffYears = playoffYearsByManager.get(managerId) ?? new Set<number>();
+      runs.push(...computeRuns(managerId, years, playoffYears));
+    });
+    return runs;
+  }, [participatedYearsByManager, playoffYearsByManager]);
 
   const managerName = useMemo(() => new Map(managers.map((m) => [m.id, m.name])), [managers]);
 
@@ -246,7 +308,7 @@ export default function HistoryPage() {
     const topMargins = margins.slice(0, 3);
 
     const seasonMap = new Map<string, { manager_id: number; year: number; w: number; l: number; pf: number }>();
-    filteredMatchups.forEach((r) => {
+    regularSeasonMatchups.forEach((r) => {
       const key = `${r.manager_id}-${r.year}`;
       if (!seasonMap.has(key)) seasonMap.set(key, { manager_id: r.manager_id, year: r.year, w: 0, l: 0, pf: 0 });
       const s = seasonMap.get(key)!;
@@ -259,8 +321,11 @@ export default function HistoryPage() {
     const topLossSeasons = [...seasonRows].sort((a, b) => b.l - a.l || a.w - b.w).slice(0, 3);
     const topPointsSeasons = [...seasonRows].sort((a, b) => b.pf - a.pf).slice(0, 3);
 
-    return { topScores, lowScores, topMargins, topWinsSeasons, topLossSeasons, topPointsSeasons };
-  }, [filteredMatchups]);
+    const topPlayoffStreaks = [...allPlayoffRuns].filter((r) => r.type === "streak").sort((a, b) => b.length - a.length).slice(0, 3);
+    const topPlayoffDroughts = [...allPlayoffRuns].filter((r) => r.type === "drought").sort((a, b) => b.length - a.length).slice(0, 3);
+
+    return { topScores, lowScores, topMargins, topWinsSeasons, topLossSeasons, topPointsSeasons, topPlayoffStreaks, topPlayoffDroughts };
+  }, [filteredMatchups, regularSeasonMatchups, allPlayoffRuns]);
 
   // Same category set as League Records, scoped down to one manager's own games/seasons.
   const individualRecords = useMemo(() => {
@@ -289,8 +354,9 @@ export default function HistoryPage() {
     winMargins.sort((a, b) => b.margin - a.margin);
     const topMargins = winMargins.slice(0, 3);
 
+    const ownRegularMatchups = regularSeasonMatchups.filter((r) => r.manager_id === individualManagerId);
     const seasonMap = new Map<number, { year: number; w: number; l: number; pf: number }>();
-    ownMatchups.forEach((r) => {
+    ownRegularMatchups.forEach((r) => {
       if (!seasonMap.has(r.year)) seasonMap.set(r.year, { year: r.year, w: 0, l: 0, pf: 0 });
       const s = seasonMap.get(r.year)!;
       if (r.win) s.w += 1;
@@ -302,8 +368,12 @@ export default function HistoryPage() {
     const topLossSeasons = [...seasonRows].sort((a, b) => b.l - a.l || a.w - b.w).slice(0, 3);
     const topPointsSeasons = [...seasonRows].sort((a, b) => b.pf - a.pf).slice(0, 3);
 
-    return { topScores, lowScores, topMargins, topWinsSeasons, topLossSeasons, topPointsSeasons };
-  }, [filteredMatchups, recordsFilterId]);
+    const myRuns = allPlayoffRuns.filter((r) => r.managerId === individualManagerId);
+    const topPlayoffStreaks = myRuns.filter((r) => r.type === "streak").sort((a, b) => b.length - a.length).slice(0, 2);
+    const topPlayoffDroughts = myRuns.filter((r) => r.type === "drought").sort((a, b) => b.length - a.length).slice(0, 2);
+
+    return { topScores, lowScores, topMargins, topWinsSeasons, topLossSeasons, topPointsSeasons, topPlayoffStreaks, topPlayoffDroughts };
+  }, [filteredMatchups, regularSeasonMatchups, allPlayoffRuns, recordsFilterId]);
 
   // Normalizes League Records (all managers) and Individual Records (one manager) into
   // the same {value, detail}[] shape the record cards render, so the JSX below doesn't
@@ -335,6 +405,14 @@ export default function HistoryPage() {
           value: Number(s.pf).toFixed(1),
           detail: `${managerName.get(s.manager_id)} \u00b7 ${s.year}`,
         })),
+        topPlayoffStreaks: leagueRecords.topPlayoffStreaks.map((r) => ({
+          value: `${r.length} yr${r.length > 1 ? "s" : ""}`,
+          detail: `${managerName.get(r.managerId)} \u00b7 ${formatYearRange(r.startYear, r.endYear)}`,
+        })),
+        topPlayoffDroughts: leagueRecords.topPlayoffDroughts.map((r) => ({
+          value: `${r.length} yr${r.length > 1 ? "s" : ""}`,
+          detail: `${managerName.get(r.managerId)} \u00b7 ${formatYearRange(r.startYear, r.endYear)}`,
+        })),
       };
     }
     if (!individualRecords) return null;
@@ -362,6 +440,14 @@ export default function HistoryPage() {
       topPointsSeasons: individualRecords.topPointsSeasons.map((s) => ({
         value: Number(s.pf).toFixed(1),
         detail: `${s.year}`,
+      })),
+      topPlayoffStreaks: individualRecords.topPlayoffStreaks.map((r) => ({
+        value: `${r.length} yr${r.length > 1 ? "s" : ""}`,
+        detail: formatYearRange(r.startYear, r.endYear),
+      })),
+      topPlayoffDroughts: individualRecords.topPlayoffDroughts.map((r) => ({
+        value: `${r.length} yr${r.length > 1 ? "s" : ""}`,
+        detail: formatYearRange(r.startYear, r.endYear),
       })),
     };
   }, [recordsFilterId, leagueRecords, individualRecords, managerName]);
@@ -519,6 +605,8 @@ export default function HistoryPage() {
                 <RecordCard title="Most Wins, Single Season" entries={displayRecords.topWinsSeasons} />
                 <RecordCard title="Most Losses, Single Season" entries={displayRecords.topLossSeasons} />
                 <RecordCard title="Most Points, Single Season" entries={displayRecords.topPointsSeasons} />
+                <RecordCard title="Longest Playoffs Made Streak" entries={displayRecords.topPlayoffStreaks} />
+                <RecordCard title="Longest Playoffs Drought" entries={displayRecords.topPlayoffDroughts} />
               </div>
             )}
           </section>
