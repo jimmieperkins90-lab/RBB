@@ -25,7 +25,7 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "The RBB League | League History",
+  title: "The RBB | League History",
   description: "Ten seasons of matchups, lineups, standings, and drafts.",
 };
 
