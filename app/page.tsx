@@ -35,7 +35,7 @@ export default async function HomePage() {
         <div className="relative max-w-6xl mx-auto px-5 py-16 text-center">
           <p className="font-mono uppercase tracking-[0.3em] text-burnt text-xs mb-4">Open since 2016</p>
           <h1 className="font-display text-6xl md:text-7xl leading-none chalk-shadow">
-            THE R.B.B. LEAGUE
+            HOME OF THE RBB
           </h1>
         </div>
       </section>
