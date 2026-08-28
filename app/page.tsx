@@ -12,12 +12,13 @@ async function getChampionships() {
 }
 
 const NAV_ITEMS = [
-  { href: "/standings", label: "Standings", blurb: "See where everyone stacks up" },
+  { href: "/power-rankings", label: "Power Rankings", blurb: "The word on the street" },
+  { href: "/standings", label: "Seasons", blurb: "See where everyone stacks up" },
   { href: "/matchups", label: "Matchups", blurb: "Box scores, week by week" },
   { href: "/lineups", label: "Lineups", blurb: "Every roster, every player" },
-  { href: "/draft", label: "Draft History", blurb: "Every pick, every year" },
-  { href: "/power-rankings", label: "Power Rankings", blurb: "The word on the street" },
-  { href: "/history", label: "League History", blurb: "Records and receipts" },
+  { href: "/players", label: "Players", blurb: "Every player, every game" },
+  { href: "/draft", label: "Drafts", blurb: "Every pick, every year" },
+  { href: "/history", label: "Records", blurb: "Records and receipts" },
 ];
 
 export default async function HomePage() {
