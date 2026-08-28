@@ -5,11 +5,31 @@ import type { PlayerSummary } from "./page";
 
 type SortKey = "name" | "position" | "timesStarted" | "careerPPG" | "bestGame";
 
-export default function PlayersTable({ players }: { players: PlayerSummary[] }) {
+const POSITION_FILTERS = ["QB", "RB", "WR", "TE", "K", "DEF"];
+
+function matchesPosition(playerPosition: string | null | undefined, positionFilter: string): boolean {
+  if (!playerPosition) return false;
+  return playerPosition.split("/").includes(positionFilter);
+}
+
+type ManagerOption = { id: number; name: string };
+
+export default function PlayersTable({
+  players,
+  managers,
+  years,
+}: {
+  players: PlayerSummary[];
+  managers: ManagerOption[];
+  years: number[];
+}) {
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [positionFilter, setPositionFilter] = useState<string>("all");
+  const [managerFilter, setManagerFilter] = useState<number | "all">("all");
+  const [yearFilter, setYearFilter] = useState<number | "all">("all");
 
   function toggleSort(key: SortKey) {
     if (key === sortKey) {
@@ -29,10 +49,23 @@ export default function PlayersTable({ players }: { players: PlayerSummary[] }) 
     });
   }
 
+  // Manager + Year together require the same game to match both (e.g. "started
+  // by Josh in 2022"), not just satisfied independently across different games.
+  function passesManagerYear(p: PlayerSummary): boolean {
+    if (managerFilter === "all" && yearFilter === "all") return true;
+    return p.managerBreakdown.some((mb) => {
+      if (managerFilter !== "all" && mb.managerId !== managerFilter) return false;
+      if (yearFilter === "all") return true;
+      return mb.games.some((g) => g.year === yearFilter);
+    });
+  }
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     let rows = players;
     if (q) rows = rows.filter((p) => p.name.toLowerCase().includes(q));
+    if (positionFilter !== "all") rows = rows.filter((p) => matchesPosition(p.position, positionFilter));
+    if (managerFilter !== "all" || yearFilter !== "all") rows = rows.filter((p) => passesManagerYear(p));
 
     const dir = sortDir === "asc" ? 1 : -1;
     return rows.slice().sort((a, b) => {
@@ -51,7 +84,8 @@ export default function PlayersTable({ players }: { players: PlayerSummary[] }) 
           return 0;
       }
     });
-  }, [players, search, sortKey, sortDir]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [players, search, sortKey, sortDir, positionFilter, managerFilter, yearFilter]);
 
   return (
     <div>
@@ -63,6 +97,48 @@ export default function PlayersTable({ players }: { players: PlayerSummary[] }) 
           onChange={(e) => setSearch(e.target.value)}
           className="w-full max-w-sm px-4 py-2 rounded-lg border-2 border-coffee font-body text-sm focus:outline-none focus:border-burnt"
         />
+      </div>
+
+      <div className="mb-3">
+        <p className="text-center font-mono text-[10px] uppercase text-gravy/50 mb-2">Position</p>
+        <div className="flex flex-wrap items-center gap-1.5 justify-center">
+          <FilterChip active={positionFilter === "all"} onClick={() => setPositionFilter("all")}>
+            All
+          </FilterChip>
+          {POSITION_FILTERS.map((pos) => (
+            <FilterChip key={pos} active={positionFilter === pos} onClick={() => setPositionFilter(pos)}>
+              {pos}
+            </FilterChip>
+          ))}
+        </div>
+      </div>
+
+      <div className="mb-3">
+        <p className="text-center font-mono text-[10px] uppercase text-gravy/50 mb-2">Manager</p>
+        <div className="flex flex-wrap items-center gap-1.5 justify-center">
+          <FilterChip active={managerFilter === "all"} onClick={() => setManagerFilter("all")}>
+            All
+          </FilterChip>
+          {managers.map((m) => (
+            <FilterChip key={m.id} active={managerFilter === m.id} onClick={() => setManagerFilter(m.id)}>
+              {m.name}
+            </FilterChip>
+          ))}
+        </div>
+      </div>
+
+      <div className="mb-5">
+        <p className="text-center font-mono text-[10px] uppercase text-gravy/50 mb-2">Year</p>
+        <div className="flex flex-wrap items-center gap-1.5 justify-center">
+          <FilterChip active={yearFilter === "all"} onClick={() => setYearFilter("all")}>
+            All
+          </FilterChip>
+          {years.map((y) => (
+            <FilterChip key={y} active={yearFilter === y} onClick={() => setYearFilter(y)}>
+              {y}
+            </FilterChip>
+          ))}
+        </div>
       </div>
 
       <div className="bg-plate border-2 border-coffee rounded-lg shadow-[5px_5px_0_#2B1B12] overflow-x-auto">
@@ -114,6 +190,27 @@ export default function PlayersTable({ players }: { players: PlayerSummary[] }) 
         </table>
       </div>
     </div>
+  );
+}
+
+function FilterChip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`px-3 py-1.5 rounded-full font-mono text-xs font-semibold border-2 transition-colors ${
+        active ? "bg-goldenrod text-coffee border-goldenrod" : "bg-transparent text-gravy border-biscuit hover:border-goldenrod"
+      }`}
+    >
+      {children}
+    </button>
   );
 }
 
