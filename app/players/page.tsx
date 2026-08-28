@@ -39,6 +39,7 @@ export type RecordRow = {
 };
 
 const POSITION_FILTERS = ["QB", "RB", "WR", "TE", "K", "DEF"];
+const CARD_KEYS = ["ALL", ...POSITION_FILTERS];
 
 function matchesPosition(playerPosition: string | null | undefined, positionFilter: string): boolean {
   if (!playerPosition) return false;
@@ -161,10 +162,8 @@ async function buildPlayerData() {
 
   players.sort((a, b) => a.name.localeCompare(b.name));
 
-  const positionRecords: Record<string, RecordRow[]> = {};
-  POSITION_FILTERS.forEach((pos) => {
-    positionRecords[pos] = allGamesFlat
-      .filter((g) => matchesPosition(g.position, pos))
+  const toRecordRows = (games: (PlayerGame & { playerName: string; position: string })[]): RecordRow[] =>
+    games
       .slice()
       .sort((a, b) => b.points - a.points)
       .slice(0, 5)
@@ -177,13 +176,23 @@ async function buildPlayerData() {
         week: g.week,
         managerName: g.managerName,
       }));
+
+  const positionRecords: Record<string, RecordRow[]> = {};
+  positionRecords.ALL = toRecordRows(allGamesFlat);
+  POSITION_FILTERS.forEach((pos) => {
+    positionRecords[pos] = toRecordRows(allGamesFlat.filter((g) => matchesPosition(g.position, pos)));
   });
 
-  return { players, positionRecords };
+  const managerOptions = Array.from(managerNames.entries())
+    .map(([id, mname]) => ({ id, name: mname }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const years = Array.from(new Set(allGamesFlat.map((g) => g.year))).sort((a, b) => b - a);
+
+  return { players, positionRecords, managerOptions, years };
 }
 
 export default async function PlayersPage() {
-  const { players, positionRecords } = await buildPlayerData();
+  const { players, positionRecords, managerOptions, years } = await buildPlayerData();
 
   return (
     <div>
@@ -198,11 +207,11 @@ export default async function PlayersPage() {
       <section className="max-w-6xl mx-auto px-5 -mt-7 relative z-10 mb-14">
         <div className="text-center mb-6">
           <h2 className="font-display text-2xl text-gravy chalk-shadow bg-plate inline-block px-6 py-2 rounded-lg border-2 border-coffee shadow-[4px_4px_0_#2B1B12]">
-            BEST PERFORMANCES BY POSITION
+            BEST PERFORMANCES
           </h2>
         </div>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {POSITION_FILTERS.map((pos) => (
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {CARD_KEYS.map((pos) => (
             <div key={pos} className="bg-plate border-2 border-coffee rounded-lg shadow-[5px_5px_0_#2B1B12] overflow-hidden">
               <div className="bg-coffee text-cream font-display text-lg text-center py-2 tracking-wide">{pos}</div>
               <table className="w-full">
@@ -240,7 +249,7 @@ export default async function PlayersPage() {
           <h2 className="font-display text-3xl text-gravy chalk-shadow">ALL PLAYERS</h2>
           <div className="menu-divider w-32 mx-auto mt-3" />
         </div>
-        <PlayersTable players={players} />
+        <PlayersTable players={players} managers={managerOptions} years={years} />
       </section>
     </div>
   );
