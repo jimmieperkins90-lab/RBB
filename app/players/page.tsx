@@ -89,6 +89,7 @@ async function getStartedGames(): Promise<RawGame[]> {
       .from("lineups")
       .select("year, week, manager_id, player_name, player_position, points")
       .not("lineup_pos", "in", "(BN,IR)")
+      .neq("player_name", "--empty--")
       .range(from, to)
   );
 }
