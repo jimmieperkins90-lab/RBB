@@ -198,10 +198,10 @@ export default function LineupsPage() {
   const [weeks, setWeeks] = useState<number[]>([]);
   const [week, setWeek] = useState<number | undefined>(initial.week);
   const [managers, setManagers] = useState<Manager[]>([]);
-  const [managerId, setManagerId] = useState<number | "all" | undefined>(initial.manager);
+  const [managerId, setManagerId] = useState<number | "all" | undefined>(initial.manager ?? "all");
   const [opponentId, setOpponentId] = useState<number | undefined>(initial.opponent);
   const [positionFilter, setPositionFilter] = useState<string>(initial.position ?? "all");
-  const [viewMode, setViewMode] = useState<"week" | "season">("week");
+  const [viewMode, setViewMode] = useState<"week" | "season">("season");
 
   const [rosterA, setRosterA] = useState<Roster | null>(null);
   const [rosterB, setRosterB] = useState<Roster | null>(null);
@@ -243,7 +243,7 @@ export default function LineupsPage() {
           .map((r: any) => ({ id: r.manager_id, name: r.managers?.name ?? "Unknown" }))
           .sort((a: Manager, b: Manager) => a.name.localeCompare(b.name));
         setManagers(ms);
-        setManagerId((cur) => (cur === "all" || (typeof cur === "number" && ms.some((m) => m.id === cur)) ? cur : ms[0]?.id));
+        setManagerId((cur) => (cur === "all" || (typeof cur === "number" && ms.some((m) => m.id === cur)) ? cur : "all"));
       });
   }, [year]);
 
