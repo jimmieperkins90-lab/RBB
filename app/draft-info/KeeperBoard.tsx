@@ -4,24 +4,41 @@ import { useState } from "react";
 import type { TeamKeeperBoard } from "./page";
 
 export default function KeeperBoard({ teams }: { teams: TeamKeeperBoard[] }) {
+  const [openManagerId, setOpenManagerId] = useState<number | null>(null);
+
+  function toggle(managerId: number) {
+    setOpenManagerId((prev) => (prev === managerId ? null : managerId));
+  }
+
   return (
-    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
       {teams.map((team) => (
-        <KeeperTeamCard key={team.managerId} team={team} />
+        <KeeperTeamCard
+          key={team.managerId}
+          team={team}
+          isOpen={openManagerId === team.managerId}
+          onToggle={() => toggle(team.managerId)}
+        />
       ))}
     </div>
   );
 }
 
-// Each card owns its own open/closed state, independent of every other card.
-function KeeperTeamCard({ team }: { team: TeamKeeperBoard }) {
-  const [isOpen, setIsOpen] = useState(false);
+function KeeperTeamCard({
+  team,
+  isOpen,
+  onToggle,
+}: {
+  team: TeamKeeperBoard;
+  isOpen: boolean;
+  onToggle: () => void;
+}) {
   const eligibleCount = team.players.filter((p) => p.eligible).length;
 
   return (
     <div className="bg-plate border-2 border-coffee rounded-lg shadow-[5px_5px_0_#2B1B12] overflow-hidden">
       <button
-        onClick={() => setIsOpen((prev) => !prev)}
+        onClick={onToggle}
         className="w-full bg-coffee text-cream flex items-center justify-between px-4 py-3 hover:bg-coffee/90 transition-colors text-left"
       >
         <span className="font-display text-xl tracking-wide">{team.managerName}</span>
