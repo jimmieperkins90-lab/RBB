@@ -18,6 +18,8 @@ const NAV_ITEMS = [
   { href: "/lineups", label: "Lineups", blurb: "Every roster, every player" },
   { href: "/players", label: "Players", blurb: "Every player, every game" },
   { href: "/draft", label: "Drafts", blurb: "Every pick, every year" },
+  { href: "/draft-info", label: "2026 Draft Info", blurb: "Order, keepers, and traded picks" },
+  { href: "/trades", label: "Trades", blurb: "The full trade ledger" },
   { href: "/history", label: "Records", blurb: "Records and receipts" },
 ];
 
