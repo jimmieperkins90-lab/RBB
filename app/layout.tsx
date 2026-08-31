@@ -49,6 +49,8 @@ export default function RootLayout({
               <Link href="/lineups" className="px-3 py-2 rounded hover:bg-white/10 transition-colors">Lineups</Link>
               <Link href="/players" className="px-3 py-2 rounded hover:bg-white/10 transition-colors">Players</Link>
               <Link href="/draft" className="px-3 py-2 rounded hover:bg-white/10 transition-colors">Drafts</Link>
+              <Link href="/draft-info" className="px-3 py-2 rounded hover:bg-white/10 transition-colors">2026 Draft Info</Link>
+              <Link href="/trades" className="px-3 py-2 rounded hover:bg-white/10 transition-colors">Trades</Link>
               <Link href="/history" className="px-3 py-2 rounded hover:bg-white/10 transition-colors">Records</Link>
             </nav>
           </div>
