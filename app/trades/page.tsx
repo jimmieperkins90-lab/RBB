@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import TradesList from "./TradesList";
 
 export const revalidate = 300;
 
@@ -14,8 +15,6 @@ type TradeAssetRow = {
   pick_original_manager_id: number | null;
 };
 
-type TradeRow = { id: number; trade_number: number; year: number; trade_date: string; note: string | null };
-
 type AssetDisplay = { label: string };
 
 type ManagerSide = {
@@ -24,13 +23,16 @@ type ManagerSide = {
   assets: AssetDisplay[];
 };
 
-type Trade = {
+export type Trade = {
   tradeNumber: number;
+  year: number;
   date: string;
   sides: ManagerSide[];
 };
 
-async function getTrades(): Promise<Trade[]> {
+export type ManagerOption = { id: number; name: string };
+
+async function getTrades(): Promise<{ trades: Trade[]; years: number[]; managers: ManagerOption[] }> {
   const [tradesRes, assetsRes, managersRes] = await Promise.all([
     supabase.from("trades").select("id, trade_number, year, trade_date, note").order("trade_date", { ascending: false }),
     supabase
@@ -51,6 +53,8 @@ async function getTrades(): Promise<Trade[]> {
     assetsByTrade.set(a.trade_id, list);
   });
 
+  const involvedManagerIds = new Set<number>();
+
   const trades: Trade[] = (tradesRes.data ?? []).map((t: any) => {
     const assets = assetsByTrade.get(t.id) ?? [];
     const bySide = new Map<number, AssetDisplay[]>();
@@ -63,6 +67,7 @@ async function getTrades(): Promise<Trade[]> {
         list.push({ label: `${a.pick_year} Round ${a.pick_round} pick (from ${originalName})` });
       }
       bySide.set(a.receiving_manager_id, list);
+      involvedManagerIds.add(a.receiving_manager_id);
     });
 
     const sides: ManagerSide[] = Array.from(bySide.entries()).map(([managerId, sideAssets]) => ({
@@ -73,16 +78,22 @@ async function getTrades(): Promise<Trade[]> {
 
     return {
       tradeNumber: t.trade_number,
+      year: t.year,
       date: new Date(t.trade_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
       sides,
     };
   });
 
-  return trades;
+  const years = Array.from(new Set(trades.map((t) => t.year))).sort((a, b) => b - a);
+  const managers = Array.from(involvedManagerIds)
+    .map((id) => ({ id, name: managerNames.get(id) ?? "Unknown" }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  return { trades, years, managers };
 }
 
 export default async function TradesPage() {
-  const trades = await getTrades();
+  const { trades, years, managers } = await getTrades();
 
   return (
     <div>
@@ -95,34 +106,7 @@ export default async function TradesPage() {
       </section>
 
       <section className="max-w-4xl mx-auto px-5 py-14">
-        {trades.length === 0 && <p className="text-center font-body text-gravy/60">No trades on record yet.</p>}
-        <div className="space-y-6">
-          {trades.map((trade) => (
-            <div
-              key={trade.tradeNumber}
-              className="bg-plate border-2 border-coffee rounded-lg shadow-[5px_5px_0_#2B1B12] overflow-hidden"
-            >
-              <div className="px-4 py-2.5 bg-coffee text-cream flex items-center justify-between">
-                <span className="font-mono text-xs uppercase tracking-wide">Trade #{trade.tradeNumber}</span>
-                <span className="font-mono text-xs text-cream/70">{trade.date}</span>
-              </div>
-              <div className={`grid ${trade.sides.length === 2 ? "sm:grid-cols-2" : ""} divide-y sm:divide-y-0 sm:divide-x divide-biscuit/60`}>
-                {trade.sides.map((side) => (
-                  <div key={side.managerId} className="px-4 py-3">
-                    <p className="font-display text-lg text-gravy mb-2">{side.managerName} receives</p>
-                    <ul className="space-y-1">
-                      {side.assets.map((a, i) => (
-                        <li key={i} className="text-sm text-coffee font-body">
-                          {a.label}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
+        <TradesList trades={trades} years={years} managers={managers} />
       </section>
     </div>
   );
