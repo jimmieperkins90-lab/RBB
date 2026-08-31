@@ -167,6 +167,8 @@ async function buildDraftInfo() {
     }))
     .sort((a, b) => a.round - b.round || a.slot - b.slot);
 
+  const draftAlreadyHappened = draftPickRows.some((r) => r.year === draftYear);
+
   const totalRounds = draftPickRows.reduce(
     (max, r) => (r.year === latestSeasonYear && r.round > max ? r.round : max),
     0
@@ -204,11 +206,28 @@ async function buildDraftInfo() {
     return { managerId: slotInfo.managerId, managerName: slotInfo.managerName, players };
   });
 
-  return { draftYear, draftOrderBase, tradedPicks, totalRounds, keeperBoards };
+  return { draftYear, draftOrderBase, tradedPicks, totalRounds, keeperBoards, draftAlreadyHappened };
 }
 
 export default async function DraftInfoPage() {
-  const { draftYear, draftOrderBase, tradedPicks, totalRounds, keeperBoards } = await buildDraftInfo();
+  const { draftYear, draftOrderBase, tradedPicks, totalRounds, keeperBoards, draftAlreadyHappened } = await buildDraftInfo();
+
+  if (draftAlreadyHappened) {
+    return (
+      <div>
+        <section className="relative overflow-hidden bg-coffee text-cream">
+          <div className="absolute inset-0 bg-diner-stripe opacity-[0.07]" />
+          <div className="relative max-w-6xl mx-auto px-5 py-20 text-center">
+            <p className="font-mono uppercase tracking-[0.3em] text-burnt text-xs mb-4">See you next offseason</p>
+            <h1 className="font-display text-4xl leading-none chalk-shadow mb-4">
+              THE {draftYear} DRAFT IS IN THE BOOKS
+            </h1>
+            <p className="font-body text-cream/70">Check back after the season for the {draftYear + 1} draft prep.</p>
+          </div>
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div>
