@@ -134,11 +134,7 @@ async function buildDraftInfo() {
       .select("pick_round, pick_original_manager_id, receiving_manager_id, trades(trade_date)")
       .eq("asset_type", "pick")
       .eq("pick_year", draftYear),
-    supabase
-      .from("lineups")
-      .select("manager_id, player_name, player_position")
-      .eq("year", latestSeasonYear)
-      .eq("week", 17),
+    supabase.from("current_rosters").select("manager_id, player_name, player_position").eq("year", latestSeasonYear),
   ]);
 
   const draftOrderBase: DraftSlot[] = (standingsRes.data ?? [])
