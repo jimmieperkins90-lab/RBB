@@ -104,10 +104,7 @@ function BracketColumns({ rounds, bracketType }: { rounds: Map<number, any[]>; b
     <div className="flex gap-6 overflow-x-auto pb-4">
       {roundNums.map((rn, roundIndex) => {
         const games = rounds.get(rn)!;
-        // If a round mixes distinct game types (e.g. Championship + 3rd Place),
-        // label the column "Finals" rather than just the first game's label.
-        const allSameType = games.every((g) => g.roundGame === games[0]?.roundGame);
-        const columnLabel = allSameType ? games[0]?.roundGame ?? `Round ${rn}` : "Finals";
+        const columnLabel = `Round ${roundIndex + 1}`;
         return (
           <div key={rn} className="flex-shrink-0 w-64">
             <h4 className="font-display text-xl text-gravy mb-3 text-center tracking-wide chalk-shadow">
