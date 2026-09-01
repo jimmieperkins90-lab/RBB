@@ -57,8 +57,20 @@ async function getBracketData(year: number) {
     rounds.get(g.round)!.push(g);
   });
 
+  // Within a round, marquee games (Championship / Toilet Bowl) always sort above
+  // any secondary placement game sharing that round (e.g. 3rd Place, 5th Place).
+  const MARQUEE_GAMES = new Set(["Championship", "Toilet Bowl"]);
+  function sortRoundGames(list: any[]) {
+    list.sort((a, b) => {
+      const pa = MARQUEE_GAMES.has(a.roundGame) ? 0 : 1;
+      const pb = MARQUEE_GAMES.has(b.roundGame) ? 0 : 1;
+      if (pa !== pb) return pa - pb;
+      return (a.homeSeed ?? 99) - (b.homeSeed ?? 99);
+    });
+  }
+
   Object.values(bracket).forEach((rounds) => {
-    rounds.forEach((list) => list.sort((a, b) => (a.homeSeed ?? 99) - (b.homeSeed ?? 99)));
+    rounds.forEach((list) => sortRoundGames(list));
   });
 
   return bracket;
@@ -92,10 +104,14 @@ function BracketColumns({ rounds, bracketType }: { rounds: Map<number, any[]>; b
     <div className="flex gap-6 overflow-x-auto pb-4">
       {roundNums.map((rn, roundIndex) => {
         const games = rounds.get(rn)!;
+        // If a round mixes distinct game types (e.g. Championship + 3rd Place),
+        // label the column "Finals" rather than just the first game's label.
+        const allSameType = games.every((g) => g.roundGame === games[0]?.roundGame);
+        const columnLabel = allSameType ? games[0]?.roundGame ?? `Round ${rn}` : "Finals";
         return (
           <div key={rn} className="flex-shrink-0 w-64">
             <h4 className="font-display text-xl text-gravy mb-3 text-center tracking-wide chalk-shadow">
-              {games[0]?.roundGame ?? `Round ${rn}`}
+              {columnLabel}
             </h4>
             <div className="space-y-4">
               {games.map((g, i) => {
