@@ -44,6 +44,7 @@ export default function RootLayout({
             </Link>
             <nav className="flex flex-wrap gap-1 text-sm font-semibold uppercase tracking-wide">
               <Link href="/power-rankings" className="px-3 py-2 rounded hover:bg-white/10 transition-colors">Power Rankings</Link>
+              <Link href="/chopped" className="px-3 py-2 rounded hover:bg-white/10 transition-colors">Chopped</Link>
               <Link href="/standings" className="px-3 py-2 rounded hover:bg-white/10 transition-colors">Seasons</Link>
               <Link href="/matchups" className="px-3 py-2 rounded hover:bg-white/10 transition-colors">Matchups</Link>
               <Link href="/lineups" className="px-3 py-2 rounded hover:bg-white/10 transition-colors">Lineups</Link>
