@@ -9,7 +9,7 @@ type StandingRow = {
   division: string | null;
   final_place: string | null;
   made_finals: boolean | null;
-  record: { w: number; l: number; pf: number };
+  record: { w: number; l: number; pf: number; pa: number };
 };
 
 type PlayoffOddsRow = {
@@ -58,6 +58,8 @@ export default function StandingsTable({
 
   const oddsByManager = new Map(playoffOdds.map((o) => [o.manager_id, o]));
   const oddsAsOfWeek = playoffOdds[0]?.as_of_week;
+
+  const colCount = (hasDivisions ? 7 : 6);
 
   async function toggleManager(managerId: number) {
     if (openManagerId === managerId) {
@@ -143,6 +145,7 @@ export default function StandingsTable({
             {hasDivisions && <th className="text-left py-2 font-semibold">Division</th>}
             <th className="text-center py-2 font-semibold">Record</th>
             <th className="text-center py-2 font-semibold">PF</th>
+            <th className="text-center py-2 font-semibold">PA</th>
             <th className="text-center pr-4 py-2 font-semibold">
               {seasonComplete ? "Finish" : "Playoff Odds"}
             </th>
@@ -169,6 +172,7 @@ export default function StandingsTable({
                 )}
                 <td className="text-center py-2 font-mono">{t.record.w}-{t.record.l}</td>
                 <td className="text-center py-2 font-mono">{t.record.pf.toFixed(1)}</td>
+                <td className="text-center py-2 font-mono">{t.record.pa.toFixed(1)}</td>
                 <td className="text-center pr-4 py-2 font-mono font-bold">
                   {seasonComplete ? (
                     <span className="text-burnt">{t.final_place ?? "\u2014"}</span>
@@ -179,7 +183,7 @@ export default function StandingsTable({
               </tr>
               {openManagerId === t.manager_id && (
                 <tr key={`${t.manager_id}-expanded`} className="bg-cream/60">
-                  <td colSpan={hasDivisions ? 6 : 5} className="px-4 py-3">
+                  <td colSpan={colCount} className="px-4 py-3">
                     {loadingManagerId === t.manager_id && (
                       <p className="font-mono text-xs text-gravy/60">Loading games&hellip;</p>
                     )}
