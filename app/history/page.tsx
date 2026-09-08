@@ -545,12 +545,14 @@ export default function HistoryPage() {
               <div className="menu-divider w-40 mx-auto mt-3" />
             </div>
             <div className="bg-plate border-2 border-coffee rounded-lg shadow-[6px_6px_0_#2B1B12] overflow-hidden overflow-x-auto">
-              <table className="w-full text-sm border-separate border-spacing-0" style={{ minWidth: `${960 + allPlaces.length * 90}px` }}>
+              <table className="w-full text-sm border-separate border-spacing-0" style={{ minWidth: `${1140 + allPlaces.length * 90}px` }}>
                 <thead>
                   <tr className="font-mono uppercase text-[11px] text-gravy/70 border-b border-biscuit bg-biscuit/30">
                     <th className="sticky left-0 z-10 bg-biscuit text-left pl-4 py-2 font-semibold whitespace-nowrap">Manager</th>
                     <th className="text-center py-2 font-semibold whitespace-nowrap">Record</th>
                     <th className="text-center py-2 font-semibold whitespace-nowrap">Win%</th>
+                    <th className="text-center py-2 font-semibold whitespace-nowrap">PF</th>
+                    <th className="text-center py-2 font-semibold whitespace-nowrap">PA</th>
                     <th className="text-center py-2 font-semibold whitespace-nowrap">PF/G</th>
                     <th className="text-center py-2 font-semibold whitespace-nowrap">PA/G</th>
                     <th className="text-center py-2 font-semibold whitespace-nowrap">Years</th>
@@ -570,6 +572,8 @@ export default function HistoryPage() {
                       </td>
                       <td className="text-center py-2 font-mono align-top whitespace-nowrap">{r.w}-{r.l}</td>
                       <td className="text-center py-2 font-mono align-top whitespace-nowrap">{(r.winPct * 100).toFixed(1)}%</td>
+                      <td className="text-center py-2 font-mono align-top whitespace-nowrap">{r.pf.toFixed(1)}</td>
+                      <td className="text-center py-2 font-mono align-top whitespace-nowrap">{r.pa.toFixed(1)}</td>
                       <td className="text-center py-2 font-mono align-top whitespace-nowrap">{r.ppg.toFixed(1)}</td>
                       <td className="text-center py-2 font-mono align-top whitespace-nowrap">{r.papg.toFixed(1)}</td>
                       <td className="text-center py-2 font-mono align-top whitespace-nowrap">{r.seasonsPlayed}</td>
