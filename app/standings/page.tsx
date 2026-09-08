@@ -22,23 +22,24 @@ async function getStandings(year: number) {
 
   const { data: matchups } = await supabase
     .from("matchups")
-    .select("manager_id, win, score, game_played")
+    .select("manager_id, win, score, opp_score, game_played")
     .eq("year", year)
     .eq("game_played", true);
 
-  const record = new Map<number, { w: number; l: number; pf: number }>();
+  const record = new Map<number, { w: number; l: number; pf: number; pa: number }>();
   (matchups ?? []).forEach((m: any) => {
-    const cur = record.get(m.manager_id) ?? { w: 0, l: 0, pf: 0 };
+    const cur = record.get(m.manager_id) ?? { w: 0, l: 0, pf: 0, pa: 0 };
     if (m.win) cur.w += 1;
     else cur.l += 1;
     cur.pf += Number(m.score ?? 0);
+    cur.pa += Number(m.opp_score ?? 0);
     record.set(m.manager_id, cur);
   });
 
   const rows = (teamSeasons ?? []).map((t: any) => ({
     ...t,
     managerName: t.managers?.name ?? "Unknown",
-    record: record.get(t.manager_id) ?? { w: 0, l: 0, pf: 0 },
+    record: record.get(t.manager_id) ?? { w: 0, l: 0, pf: 0, pa: 0 },
   }));
 
   // Season is "complete" once every team has a recorded final finish. Until then,
