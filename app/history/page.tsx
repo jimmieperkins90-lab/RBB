@@ -13,6 +13,7 @@ type Matchup = {
   manager_id: number;
   opponent_manager_id: number;
   score: number;
+  opp_score: number;
   win: boolean;
   time_of_season: string;
   round_game: string | null;
@@ -110,7 +111,7 @@ export default function HistoryPage() {
         fetchAllRows<Matchup>((from, to) =>
           supabase
             .from("matchups")
-            .select("year, week, manager_id, opponent_manager_id, score, win, game_played, time_of_season, round_game, seed")
+            .select("year, week, manager_id, opponent_manager_id, score, opp_score, win, game_played, time_of_season, round_game, seed")
             .eq("game_played", true)
             .range(from, to)
         ),
@@ -255,12 +256,13 @@ export default function HistoryPage() {
   }, [filteredTeamSeasons]);
 
   const careerTable = useMemo(() => {
-    const career = new Map<number, { w: number; l: number; pf: number; games: number }>();
+    const career = new Map<number, { w: number; l: number; pf: number; pa: number; games: number }>();
     filteredMatchups.forEach((r) => {
-      const cur = career.get(r.manager_id) ?? { w: 0, l: 0, pf: 0, games: 0 };
+      const cur = career.get(r.manager_id) ?? { w: 0, l: 0, pf: 0, pa: 0, games: 0 };
       if (r.win) cur.w += 1;
       else cur.l += 1;
       cur.pf += Number(r.score ?? 0);
+      cur.pa += Number(r.opp_score ?? 0);
       cur.games += 1;
       career.set(r.manager_id, cur);
     });
@@ -271,7 +273,7 @@ export default function HistoryPage() {
     });
     return managers
       .map((m) => {
-        const c = career.get(m.id) ?? { w: 0, l: 0, pf: 0, games: 0 };
+        const c = career.get(m.id) ?? { w: 0, l: 0, pf: 0, pa: 0, games: 0 };
         const places = finishMapByManager.get(m.id);
         return {
           id: m.id,
@@ -281,6 +283,8 @@ export default function HistoryPage() {
           winPct: c.games > 0 ? c.w / c.games : 0,
           pf: c.pf,
           ppg: c.games > 0 ? c.pf / c.games : 0,
+          pa: c.pa,
+          papg: c.games > 0 ? c.pa / c.games : 0,
           titles: champCounts.get(m.id) ?? 0,
           regSeasonTitles: regularSeasonTitleCounts.get(m.id) ?? 0,
           seasonsPlayed: seasonsPlayedCounts.get(m.id) ?? 0,
@@ -541,13 +545,14 @@ export default function HistoryPage() {
               <div className="menu-divider w-40 mx-auto mt-3" />
             </div>
             <div className="bg-plate border-2 border-coffee rounded-lg shadow-[6px_6px_0_#2B1B12] overflow-hidden overflow-x-auto">
-              <table className="w-full text-sm border-separate border-spacing-0" style={{ minWidth: `${900 + allPlaces.length * 90}px` }}>
+              <table className="w-full text-sm border-separate border-spacing-0" style={{ minWidth: `${960 + allPlaces.length * 90}px` }}>
                 <thead>
                   <tr className="font-mono uppercase text-[11px] text-gravy/70 border-b border-biscuit bg-biscuit/30">
                     <th className="sticky left-0 z-10 bg-biscuit text-left pl-4 py-2 font-semibold whitespace-nowrap">Manager</th>
                     <th className="text-center py-2 font-semibold whitespace-nowrap">Record</th>
                     <th className="text-center py-2 font-semibold whitespace-nowrap">Win%</th>
-                    <th className="text-center py-2 font-semibold whitespace-nowrap">PPG</th>
+                    <th className="text-center py-2 font-semibold whitespace-nowrap">PF/G</th>
+                    <th className="text-center py-2 font-semibold whitespace-nowrap">PA/G</th>
                     <th className="text-center py-2 font-semibold whitespace-nowrap">Years</th>
                     <th className="text-center py-2 font-semibold whitespace-nowrap">Titles</th>
                     <th className="text-center py-2 font-semibold whitespace-nowrap">Reg. Season Titles</th>
@@ -566,6 +571,7 @@ export default function HistoryPage() {
                       <td className="text-center py-2 font-mono align-top whitespace-nowrap">{r.w}-{r.l}</td>
                       <td className="text-center py-2 font-mono align-top whitespace-nowrap">{(r.winPct * 100).toFixed(1)}%</td>
                       <td className="text-center py-2 font-mono align-top whitespace-nowrap">{r.ppg.toFixed(1)}</td>
+                      <td className="text-center py-2 font-mono align-top whitespace-nowrap">{r.papg.toFixed(1)}</td>
                       <td className="text-center py-2 font-mono align-top whitespace-nowrap">{r.seasonsPlayed}</td>
                       <td className="text-center py-2 font-mono text-carolina font-bold align-top whitespace-nowrap">{r.titles > 0 ? r.titles : "\u2014"}</td>
                       <td className="text-center py-2 font-mono align-top whitespace-nowrap">{r.regSeasonTitles > 0 ? r.regSeasonTitles : "\u2014"}</td>
