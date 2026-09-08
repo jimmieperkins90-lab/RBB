@@ -13,6 +13,7 @@ async function getChampionships() {
 
 const NAV_ITEMS = [
   { href: "/power-rankings", label: "Power Rankings", blurb: "The word on the street" },
+  { href: "/chopped", label: "Chopped", blurb: "Lowest score each week gets the knife" },
   { href: "/standings", label: "Seasons", blurb: "See where everyone stacks up" },
   { href: "/matchups", label: "Matchups", blurb: "Box scores, week by week" },
   { href: "/lineups", label: "Lineups", blurb: "Every roster, every player" },
