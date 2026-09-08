@@ -293,9 +293,69 @@ export default function HistoryPage() {
           places,
         };
       })
-      .filter((r) => r.games > 0)
-      .sort((a, b) => b.w - a.w);
+      .filter((r) => r.games > 0);
   }, [filteredMatchups, managers, championships, yearFilter, finishMapByManager, regularSeasonTitleCounts, seasonsPlayedCounts, playoffAppearanceCounts]);
+
+  const [sortKey, setSortKey] = useState<string>("w");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+
+  function handleSort(key: string, defaultDir: "asc" | "desc" = "desc") {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir(defaultDir);
+    }
+  }
+
+  function getSortValue(r: (typeof careerTable)[number], key: string): number | string {
+    if (key.startsWith("place:")) {
+      const place = key.slice(6);
+      return r.places?.get(place)?.length ?? 0;
+    }
+    switch (key) {
+      case "name":
+        return r.name.toLowerCase();
+      case "w":
+        return r.w;
+      case "winPct":
+        return r.winPct;
+      case "pf":
+        return r.pf;
+      case "pa":
+        return r.pa;
+      case "ppg":
+        return r.ppg;
+      case "papg":
+        return r.papg;
+      case "seasonsPlayed":
+        return r.seasonsPlayed;
+      case "titles":
+        return r.titles;
+      case "regSeasonTitles":
+        return r.regSeasonTitles;
+      case "playoffApps":
+        return r.playoffApps;
+      default:
+        return 0;
+    }
+  }
+
+  const sortedCareerTable = useMemo(() => {
+    const arr = [...careerTable];
+    arr.sort((a, b) => {
+      const va = getSortValue(a, sortKey);
+      const vb = getSortValue(b, sortKey);
+      const cmp = typeof va === "string" || typeof vb === "string" ? String(va).localeCompare(String(vb)) : (va as number) - (vb as number);
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+    return arr;
+  }, [careerTable, sortKey, sortDir]);
+
+  function sortIndicator(key: string) {
+    if (sortKey !== key) return "";
+    return sortDir === "asc" ? " \u25b2" : " \u25bc";
+  }
 
   // League records — top 3 per category
   const leagueRecords = useMemo(() => {
@@ -548,24 +608,85 @@ export default function HistoryPage() {
               <table className="w-full text-sm border-separate border-spacing-0" style={{ minWidth: `${1140 + allPlaces.length * 90}px` }}>
                 <thead>
                   <tr className="font-mono uppercase text-[11px] text-gravy/70 border-b border-biscuit bg-biscuit/30">
-                    <th className="sticky left-0 z-10 bg-biscuit text-left pl-4 py-2 font-semibold whitespace-nowrap">Manager</th>
-                    <th className="text-center py-2 font-semibold whitespace-nowrap">Record</th>
-                    <th className="text-center py-2 font-semibold whitespace-nowrap">Win%</th>
-                    <th className="text-center py-2 font-semibold whitespace-nowrap">PF</th>
-                    <th className="text-center py-2 font-semibold whitespace-nowrap">PA</th>
-                    <th className="text-center py-2 font-semibold whitespace-nowrap">PF/G</th>
-                    <th className="text-center py-2 font-semibold whitespace-nowrap">PA/G</th>
-                    <th className="text-center py-2 font-semibold whitespace-nowrap">Years</th>
-                    <th className="text-center py-2 font-semibold whitespace-nowrap">Titles</th>
-                    <th className="text-center py-2 font-semibold whitespace-nowrap">Reg. Season Titles</th>
-                    <th className="text-center py-2 font-semibold whitespace-nowrap">Playoffs</th>
+                    <th
+                      onClick={() => handleSort("name", "asc")}
+                      className="sticky left-0 z-10 bg-biscuit text-left pl-4 py-2 font-semibold whitespace-nowrap cursor-pointer select-none hover:text-coffee"
+                    >
+                      Manager{sortIndicator("name")}
+                    </th>
+                    <th
+                      onClick={() => handleSort("w")}
+                      className="text-center py-2 font-semibold whitespace-nowrap cursor-pointer select-none hover:text-coffee"
+                    >
+                      Record{sortIndicator("w")}
+                    </th>
+                    <th
+                      onClick={() => handleSort("winPct")}
+                      className="text-center py-2 font-semibold whitespace-nowrap cursor-pointer select-none hover:text-coffee"
+                    >
+                      Win%{sortIndicator("winPct")}
+                    </th>
+                    <th
+                      onClick={() => handleSort("pf")}
+                      className="text-center py-2 font-semibold whitespace-nowrap cursor-pointer select-none hover:text-coffee"
+                    >
+                      PF{sortIndicator("pf")}
+                    </th>
+                    <th
+                      onClick={() => handleSort("pa")}
+                      className="text-center py-2 font-semibold whitespace-nowrap cursor-pointer select-none hover:text-coffee"
+                    >
+                      PA{sortIndicator("pa")}
+                    </th>
+                    <th
+                      onClick={() => handleSort("ppg")}
+                      className="text-center py-2 font-semibold whitespace-nowrap cursor-pointer select-none hover:text-coffee"
+                    >
+                      PF/G{sortIndicator("ppg")}
+                    </th>
+                    <th
+                      onClick={() => handleSort("papg")}
+                      className="text-center py-2 font-semibold whitespace-nowrap cursor-pointer select-none hover:text-coffee"
+                    >
+                      PA/G{sortIndicator("papg")}
+                    </th>
+                    <th
+                      onClick={() => handleSort("seasonsPlayed")}
+                      className="text-center py-2 font-semibold whitespace-nowrap cursor-pointer select-none hover:text-coffee"
+                    >
+                      Years{sortIndicator("seasonsPlayed")}
+                    </th>
+                    <th
+                      onClick={() => handleSort("titles")}
+                      className="text-center py-2 font-semibold whitespace-nowrap cursor-pointer select-none hover:text-coffee"
+                    >
+                      Titles{sortIndicator("titles")}
+                    </th>
+                    <th
+                      onClick={() => handleSort("regSeasonTitles")}
+                      className="text-center py-2 font-semibold whitespace-nowrap cursor-pointer select-none hover:text-coffee"
+                    >
+                      Reg. Season Titles{sortIndicator("regSeasonTitles")}
+                    </th>
+                    <th
+                      onClick={() => handleSort("playoffApps")}
+                      className="text-center py-2 font-semibold whitespace-nowrap cursor-pointer select-none hover:text-coffee"
+                    >
+                      Playoffs{sortIndicator("playoffApps")}
+                    </th>
                     {allPlaces.map((place) => (
-                      <th key={place} className="text-center py-2 font-semibold whitespace-nowrap">{place}</th>
+                      <th
+                        key={place}
+                        onClick={() => handleSort(`place:${place}`)}
+                        className="text-center py-2 font-semibold whitespace-nowrap cursor-pointer select-none hover:text-coffee"
+                      >
+                        {place}{sortIndicator(`place:${place}`)}
+                      </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {careerTable.map((r, i) => (
+                  {sortedCareerTable.map((r, i) => (
                     <tr key={i} className={`border-b border-biscuit/60 last:border-0 ${r.titles > 0 ? "bg-carolina/10" : ""}`}>
                       <td className={`sticky left-0 z-10 pl-4 py-2 font-semibold text-coffee align-top whitespace-nowrap ${r.titles > 0 ? "bg-carolina/10" : "bg-plate"}`}>
                         {r.name}
