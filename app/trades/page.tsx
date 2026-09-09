@@ -34,7 +34,11 @@ export type ManagerOption = { id: number; name: string };
 
 async function getTrades(): Promise<{ trades: Trade[]; years: number[]; managers: ManagerOption[] }> {
   const [tradesRes, assetsRes, managersRes] = await Promise.all([
-    supabase.from("trades").select("id, trade_number, year, trade_date, note").order("trade_date", { ascending: false }),
+    supabase
+      .from("trades")
+      .select("id, trade_number, year, trade_date, note")
+      .order("trade_date", { ascending: false })
+      .order("trade_number", { ascending: false }),
     supabase
       .from("trade_assets")
       .select(
