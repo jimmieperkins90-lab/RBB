@@ -32,6 +32,24 @@ function matchesPosition(position: string, filter: string) {
 
 const POSITIONS = ["QB", "RB", "WR", "TE", "K", "DEF"];
 
+function percentile(sorted: number[], p: number): number {
+  const idx = (p / 100) * (sorted.length - 1);
+  const lo = Math.floor(idx);
+  const hi = Math.ceil(idx);
+  if (lo === hi) return sorted[lo];
+  return sorted[lo] + (sorted[hi] - sorted[lo]) * (idx - lo);
+}
+
+// Anomaly cutoff via the standard IQR rule: anything above Q3 + 1.5*IQR is
+// excluded from the "average" (but still counted in the total).
+function iqrUpperBound(values: number[]): number {
+  if (values.length < 4) return Infinity;
+  const sorted = [...values].sort((a, b) => a - b);
+  const q1 = percentile(sorted, 25);
+  const q3 = percentile(sorted, 75);
+  return q3 + 1.5 * (q3 - q1);
+}
+
 export default function AllTimeStats({
   allClaims,
   offersByClaimId,
@@ -39,12 +57,12 @@ export default function AllTimeStats({
   allClaims: Claim[];
   offersByClaimId: Record<number, Offer[]>;
 }) {
-  const [era, setEra] = useState<Era>("all");
+  const [era, setEra] = useState<Era>("12");
   const [bidPosition, setBidPosition] = useState<string>("all");
   const [bidManager, setBidManager] = useState<string>("all");
   const [openManager, setOpenManager] = useState<string | null>(null);
   const [openTopBidId, setOpenTopBidId] = useState<number | null>(null);
-  const [openTightestId, setOpenTightestId] = useState<number | null>(null);
+  const [openOverspendManager, setOpenOverspendManager] = useState<string | null>(null);
 
   const managers = useMemo(() => {
     const names = Array.from(new Set(allClaims.map((c) => c.manager_name)));
@@ -80,27 +98,61 @@ export default function AllTimeStats({
       .slice(0, 5);
   }, [eraClaims, bidPosition, bidManager]);
 
-  const tightestWars = useMemo(() => {
+  // For each claim, the "next bid" skips any offer from the same manager who
+  // won (duplicate/corrected claims by the winner shouldn't count as competition).
+  const overspendClaims = useMemo(() => {
     return eraClaims
       .map((c) => {
         const offers = offersByClaimId[c.id] ?? [];
-        if (offers.length === 0) return null;
-        const maxOffer = offers[0].amount;
-        return { ...c, offers, maxOffer, gap: c.winning_bid - maxOffer };
+        const nextOffer = offers.find((o) => o.manager_name !== c.manager_name);
+        if (!nextOffer) return null;
+        return {
+          ...c,
+          nextOfferAmount: nextOffer.amount,
+          nextOfferManager: nextOffer.manager_name,
+          overspend: c.winning_bid - nextOffer.amount,
+        };
       })
-      .filter((c): c is Claim & { offers: Offer[]; maxOffer: number; gap: number } => c !== null)
-      .sort((a, b) => a.gap - b.gap || b.winning_bid - a.winning_bid)
-      .slice(0, 5);
+      .filter(
+        (c): c is Claim & { nextOfferAmount: number; nextOfferManager: string; overspend: number } => c !== null
+      );
   }, [eraClaims, offersByClaimId]);
+
+  const overspendByManager = useMemo(() => {
+    const byManager = new Map<string, { values: number[]; claims: typeof overspendClaims }>();
+    overspendClaims.forEach((c) => {
+      const cur = byManager.get(c.manager_name) ?? { values: [], claims: [] };
+      cur.values.push(c.overspend);
+      cur.claims.push(c);
+      byManager.set(c.manager_name, cur);
+    });
+
+    return Array.from(byManager.entries())
+      .map(([name, { values, claims }]) => {
+        const total = values.reduce((s, v) => s + v, 0);
+        const upperBound = iqrUpperBound(values);
+        const trimmed = values.filter((v) => v <= upperBound);
+        const avgTrimmed = trimmed.length > 0 ? trimmed.reduce((s, v) => s + v, 0) / trimmed.length : 0;
+        return {
+          name,
+          total,
+          count: values.length,
+          avgTrimmed,
+          excludedCount: values.length - trimmed.length,
+          claims: claims.slice().sort((a, b) => b.overspend - a.overspend),
+        };
+      })
+      .sort((a, b) => b.total - a.total);
+  }, [overspendClaims]);
 
   return (
     <section className="max-w-6xl mx-auto px-5 -mt-7 relative z-10">
       <div className="bg-plate border-2 border-coffee rounded-lg shadow-[4px_4px_0_#2B1B12] px-4 py-3 flex flex-wrap items-center gap-2 justify-center mb-8">
         <span className="font-display text-lg text-gravy mr-2">ERA</span>
         {[
+          { key: "12" as Era, label: "12-Team (2019\u201325)" },
           { key: "all" as Era, label: "All-Time" },
           { key: "10" as Era, label: "10-Team (2016\u201318)" },
-          { key: "12" as Era, label: "12-Team (2019\u201325)" },
         ].map((e) => (
           <button
             key={e.key}
@@ -254,65 +306,64 @@ export default function AllTimeStats({
         )}
       </div>
 
-      {/* Tightest bidding wars */}
+      {/* Overspend above next bid */}
       <div className="mb-4">
-        <h3 className="font-display text-2xl text-gravy text-center mb-4">Tightest Bidding Wars</h3>
-        {tightestWars.length === 0 ? (
+        <h3 className="font-display text-2xl text-gravy text-center mb-2">Overspend Above Next Bid</h3>
+        <p className="text-center font-mono text-[10px] text-gravy/50 mb-4 max-w-lg mx-auto">
+          Winning bid minus the highest offer from a <em>different</em> manager &mdash; same-manager duplicate offers
+          don&apos;t count as competition. Average excludes extreme outliers (IQR method). Click a manager to see every claim.
+        </p>
+        {overspendByManager.length === 0 ? (
           <p className="text-center font-body text-gravy/60 max-w-3xl mx-auto">No contested claims for this era.</p>
         ) : (
-          <div className="max-w-3xl mx-auto bg-plate border-2 border-coffee rounded-lg shadow-[6px_6px_0_#2B1B12] overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="font-mono uppercase text-[11px] text-gravy/70 border-b border-biscuit bg-biscuit/20">
-                  <th className="text-left py-2 px-3 font-semibold">Player</th>
-                  <th className="text-left py-2 px-3 font-semibold">Winner</th>
-                  <th className="text-left py-2 px-3 font-semibold">Year</th>
-                  <th className="text-right py-2 px-3 font-semibold">Bid / Runner-up</th>
-                </tr>
-              </thead>
-              <tbody>
-                {tightestWars.map((c) => {
-                  const isOpen = openTightestId === c.id;
-                  return (
-                    <Fragment key={c.id}>
-                      <tr
-                        onClick={() => setOpenTightestId(isOpen ? null : c.id)}
-                        className="border-b border-biscuit/60 last:border-0 cursor-pointer hover:bg-biscuit/20 transition-colors"
-                      >
-                        <td className="py-2 px-3 font-semibold text-coffee">
-                          {c.player_name} <span className="text-gravy/40 font-mono text-xs">({c.position})</span>
-                          <span className="ml-2 text-gravy/40 font-mono text-xs">{isOpen ? "\u25b2" : "\u25bc"}</span>
-                        </td>
-                        <td className="py-2 px-3 font-mono text-gravy/80">{c.manager_name}</td>
-                        <td className="py-2 px-3 font-mono text-gravy/80">{c.year}</td>
-                        <td className="py-2 px-3 font-mono font-bold text-right">
-                          <span className="text-burnt">${c.winning_bid}</span>
-                          <span className="text-gravy/50"> / ${c.maxOffer}</span>
-                        </td>
-                      </tr>
-                      {isOpen && (
-                        <tr className="bg-cream/60">
-                          <td colSpan={4} className="px-4 py-3">
-                            <div className="space-y-1">
-                              {c.offers.map((o, i) => (
-                                <div
-                                  key={i}
-                                  className="grid grid-cols-[1fr_60px_1fr] items-center gap-2 px-3 py-1.5 rounded font-mono text-xs bg-plate border border-biscuit"
-                                >
-                                  <span className="text-coffee font-semibold">{o.manager_name}</span>
-                                  <span className="text-burnt font-bold text-center">${o.amount}</span>
-                                  <span className="text-gravy/50 text-right">{o.reason}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </td>
-                        </tr>
+          <div className="max-w-4xl mx-auto space-y-2">
+            {overspendByManager.map((m) => {
+              const isOpen = openOverspendManager === m.name;
+              return (
+                <div key={m.name}>
+                  <button
+                    onClick={() => setOpenOverspendManager(isOpen ? null : m.name)}
+                    className="w-full bg-plate border-2 border-coffee rounded-lg shadow-[4px_4px_0_#2B1B12] px-4 py-3 flex items-center justify-between hover:bg-biscuit/20 transition-colors"
+                  >
+                    <span className="font-semibold text-coffee">
+                      {m.name}
+                      <span className="ml-2 text-gravy/40 font-mono text-xs">{isOpen ? "\u25b2" : "\u25bc"}</span>
+                    </span>
+                    <span className="font-mono text-sm text-right">
+                      <span className="font-bold text-burnt">+${m.total}</span>
+                      <span className="text-gravy/50 ml-1.5">total &middot; +${m.avgTrimmed.toFixed(1)} avg</span>
+                      <span className="text-gravy/40 ml-1.5">/ {m.count}</span>
+                    </span>
+                  </button>
+                  {isOpen && (
+                    <div className="bg-cream/60 border-2 border-t-0 border-coffee rounded-b-lg -mt-1 px-4 py-3">
+                      {m.excludedCount > 0 && (
+                        <p className="font-mono text-[10px] text-gravy/50 mb-2">
+                          {m.excludedCount} outlier claim{m.excludedCount > 1 ? "s" : ""} excluded from the average above
+                        </p>
                       )}
-                    </Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
+                      <div className="space-y-1">
+                        {m.claims.map((c) => (
+                          <div
+                            key={c.id}
+                            className="grid grid-cols-[1fr_140px_50px] items-center gap-2 px-3 py-1.5 rounded font-mono text-xs bg-plate border border-biscuit"
+                          >
+                            <span className="text-coffee font-semibold">
+                              {c.player_name} <span className="text-gravy/40">({c.position})</span>
+                            </span>
+                            <span className="text-burnt font-bold text-center">
+                              +${c.overspend}{" "}
+                              <span className="text-gravy/40">(${c.winning_bid} vs ${c.nextOfferAmount})</span>
+                            </span>
+                            <span className="text-gravy/50 text-right">{c.year}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
