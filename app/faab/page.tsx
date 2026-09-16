@@ -116,60 +116,22 @@ async function getAllClaims() {
   }));
 }
 
-async function getMaxOfferByClaimId() {
+async function getOffersByClaimId() {
   const rows = await fetchAllRows<any>((from, to) =>
-    supabase.from("faab_offers").select("claim_id, amount").range(from, to)
+    supabase.from("faab_offers").select("claim_id, amount, reason, managers(name)").range(from, to)
   );
-  const max = new Map<number, number>();
+  const byClaim = new Map<number, { manager_name: string; amount: number; reason: string }[]>();
   rows.forEach((o: any) => {
-    const cur = max.get(o.claim_id) ?? -1;
-    if (Number(o.amount ?? 0) > cur) max.set(o.claim_id, Number(o.amount ?? 0));
-  });
-  return max;
-}
-
-// Value pickups are approximated as total points that player logged for that
-// manager in that season (all weeks, not just weeks after the pickup) divided
-// by the winning bid, since the source data has no acquisition-week marker.
-async function getValuePickups(claims: Awaited<ReturnType<typeof getAllClaims>>) {
-  const bidClaims = claims.filter((c) => c.winning_bid > 0);
-  if (bidClaims.length === 0) return [];
-
-  const years = Array.from(new Set(bidClaims.map((c) => c.year)));
-  const names = Array.from(new Set(bidClaims.map((c) => c.player_name)));
-
-  const pointsMap = new Map<string, number>();
-  const chunkSize = 100;
-  for (let i = 0; i < names.length; i += chunkSize) {
-    const chunk = names.slice(i, i + chunkSize);
-    const rows = await fetchAllRows<any>((from, to) =>
-      supabase
-        .from("lineups")
-        .select("year, manager_id, player_name, points")
-        .in("year", years)
-        .in("player_name", chunk)
-        .range(from, to)
-    );
-    rows.forEach((r: any) => {
-      const key = `${r.year}|${r.manager_id}|${r.player_name}`;
-      pointsMap.set(key, (pointsMap.get(key) ?? 0) + Number(r.points ?? 0));
+    const list = byClaim.get(o.claim_id) ?? [];
+    list.push({
+      manager_name: o.managers?.name ?? "Unknown",
+      amount: Number(o.amount ?? 0),
+      reason: o.reason,
     });
-  }
-
-  return bidClaims.map((c) => {
-    const key = `${c.year}|${c.manager_id}|${c.player_name}`;
-    const points = pointsMap.get(key) ?? 0;
-    return {
-      id: c.id,
-      year: c.year,
-      player_name: c.player_name,
-      position: c.position,
-      manager_name: c.manager_name,
-      winning_bid: c.winning_bid,
-      points,
-      ppd: points / c.winning_bid,
-    };
+    byClaim.set(o.claim_id, list);
   });
+  byClaim.forEach((list) => list.sort((a, b) => b.amount - a.amount));
+  return byClaim;
 }
 
 export default async function FaabPage({
@@ -182,13 +144,12 @@ export default async function FaabPage({
   const latestYear = faabSeasons[0] ?? seasons[0];
   const year = searchParams.year ? parseInt(searchParams.year, 10) : latestYear;
 
-  const [claims, stats, allClaims, maxOfferByClaimId] = await Promise.all([
+  const [claims, stats, allClaims, offersByClaimId] = await Promise.all([
     getYearClaims(year),
     getYearStats(year),
     getAllClaims(),
-    getMaxOfferByClaimId(),
+    getOffersByClaimId(),
   ]);
-  const valuePickups = await getValuePickups(allClaims);
 
   return (
     <div>
@@ -202,8 +163,7 @@ export default async function FaabPage({
 
       <AllTimeStats
         allClaims={allClaims}
-        maxOfferByClaimId={Object.fromEntries(maxOfferByClaimId)}
-        valuePickups={valuePickups}
+        offersByClaimId={Object.fromEntries(offersByClaimId)}
       />
 
       <section className="max-w-6xl mx-auto px-5 pt-6">
