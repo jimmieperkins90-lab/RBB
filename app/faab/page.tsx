@@ -140,7 +140,7 @@ export default async function FaabPage({
   searchParams: { year?: string };
 }) {
   const seasons = await getSeasons();
-  const faabSeasons = seasons.filter((y) => y >= 2016 && y <= 2025);
+  const faabSeasons = seasons.filter((y) => y >= 2016);
   const latestYear = faabSeasons[0] ?? seasons[0];
   const year = searchParams.year ? parseInt(searchParams.year, 10) : latestYear;
 
