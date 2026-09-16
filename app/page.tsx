@@ -18,8 +18,9 @@ const NAV_ITEMS = [
   { href: "/matchups", label: "Matchups", blurb: "Box scores, week by week" },
   { href: "/lineups", label: "Lineups", blurb: "Every roster, every player" },
   { href: "/players", label: "Players", blurb: "Every player, every game" },
-  { href: "/draft", label: "Drafts", blurb: "Every pick, every year" },
   { href: "/trades", label: "Trades", blurb: "The full trade ledger" },
+  { href: "/faab", label: "FAAB History", blurb: "Every waiver claim, every fight for pennies" },
+  { href: "/draft", label: "Drafts", blurb: "Every pick, every year" },
   { href: "/history", label: "Records", blurb: "Records and receipts" },
   { href: "/draft-info", label: "2026 Draft Info", blurb: "Order, keepers, and traded picks" },
 ];
