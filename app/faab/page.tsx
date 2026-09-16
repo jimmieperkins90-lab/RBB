@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import FaabTable from "./FaabTable";
+import AllTimeStats from "./AllTimeStats";
 
 export const revalidate = 300;
 
@@ -94,6 +95,83 @@ async function getYearStats(year: number) {
   return Array.from(byManager.values()).sort((a, b) => b.total - a.total);
 }
 
+// ---- All-time (career) data, independent of the year selector ----
+
+async function getAllClaims() {
+  const rows = await fetchAllRows<any>((from, to) =>
+    supabase
+      .from("faab_claims")
+      .select("id, year, player_name, nfl_team, position, winning_bid, awarded_manager_id, managers(name)")
+      .range(from, to)
+  );
+  return rows.map((c: any) => ({
+    id: c.id as number,
+    year: c.year as number,
+    player_name: c.player_name as string,
+    nfl_team: c.nfl_team as string,
+    position: c.position as string,
+    winning_bid: Number(c.winning_bid ?? 0),
+    manager_id: c.awarded_manager_id as number,
+    manager_name: (c.managers?.name ?? "Unknown") as string,
+  }));
+}
+
+async function getMaxOfferByClaimId() {
+  const rows = await fetchAllRows<any>((from, to) =>
+    supabase.from("faab_offers").select("claim_id, amount").range(from, to)
+  );
+  const max = new Map<number, number>();
+  rows.forEach((o: any) => {
+    const cur = max.get(o.claim_id) ?? -1;
+    if (Number(o.amount ?? 0) > cur) max.set(o.claim_id, Number(o.amount ?? 0));
+  });
+  return max;
+}
+
+// Value pickups are approximated as total points that player logged for that
+// manager in that season (all weeks, not just weeks after the pickup) divided
+// by the winning bid, since the source data has no acquisition-week marker.
+async function getValuePickups(claims: Awaited<ReturnType<typeof getAllClaims>>) {
+  const bidClaims = claims.filter((c) => c.winning_bid > 0);
+  if (bidClaims.length === 0) return [];
+
+  const years = Array.from(new Set(bidClaims.map((c) => c.year)));
+  const names = Array.from(new Set(bidClaims.map((c) => c.player_name)));
+
+  const pointsMap = new Map<string, number>();
+  const chunkSize = 100;
+  for (let i = 0; i < names.length; i += chunkSize) {
+    const chunk = names.slice(i, i + chunkSize);
+    const rows = await fetchAllRows<any>((from, to) =>
+      supabase
+        .from("lineups")
+        .select("year, manager_id, player_name, points")
+        .in("year", years)
+        .in("player_name", chunk)
+        .range(from, to)
+    );
+    rows.forEach((r: any) => {
+      const key = `${r.year}|${r.manager_id}|${r.player_name}`;
+      pointsMap.set(key, (pointsMap.get(key) ?? 0) + Number(r.points ?? 0));
+    });
+  }
+
+  return bidClaims.map((c) => {
+    const key = `${c.year}|${c.manager_id}|${c.player_name}`;
+    const points = pointsMap.get(key) ?? 0;
+    return {
+      id: c.id,
+      year: c.year,
+      player_name: c.player_name,
+      position: c.position,
+      manager_name: c.manager_name,
+      winning_bid: c.winning_bid,
+      points,
+      ppd: points / c.winning_bid,
+    };
+  });
+}
+
 export default async function FaabPage({
   searchParams,
 }: {
@@ -104,7 +182,13 @@ export default async function FaabPage({
   const latestYear = faabSeasons[0] ?? seasons[0];
   const year = searchParams.year ? parseInt(searchParams.year, 10) : latestYear;
 
-  const [claims, stats] = await Promise.all([getYearClaims(year), getYearStats(year)]);
+  const [claims, stats, allClaims, maxOfferByClaimId] = await Promise.all([
+    getYearClaims(year),
+    getYearStats(year),
+    getAllClaims(),
+    getMaxOfferByClaimId(),
+  ]);
+  const valuePickups = await getValuePickups(allClaims);
 
   return (
     <div>
@@ -116,7 +200,17 @@ export default async function FaabPage({
         </div>
       </section>
 
-      <section className="max-w-6xl mx-auto px-5 -mt-7 relative z-10">
+      <AllTimeStats
+        allClaims={allClaims}
+        maxOfferByClaimId={Object.fromEntries(maxOfferByClaimId)}
+        valuePickups={valuePickups}
+      />
+
+      <section className="max-w-6xl mx-auto px-5 pt-6">
+        <div className="text-center mb-6">
+          <h2 className="font-display text-3xl text-gravy chalk-shadow">BROWSE BY SEASON</h2>
+          <div className="menu-divider w-32 mx-auto mt-3" />
+        </div>
         <div className="bg-plate border-2 border-coffee rounded-lg shadow-[4px_4px_0_#2B1B12] px-4 py-3 flex flex-wrap items-center gap-2 justify-center">
           <span className="font-display text-lg text-gravy mr-2">SEASON</span>
           {faabSeasons.map((y) => (
