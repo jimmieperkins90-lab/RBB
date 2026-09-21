@@ -362,6 +362,12 @@ export default function HistoryPage() {
     const topScores = [...filteredMatchups].sort((a, b) => b.score - a.score).slice(0, 3);
     const lowScores = [...filteredMatchups].sort((a, b) => a.score - b.score).slice(0, 3);
 
+    // Lowest score that still won its game, and highest score that still lost its game —
+    // each game counted once (a manager's own row already carries their win/loss result,
+    // so no pair-deduping is needed here the way margin calculations require).
+    const lowestWinningScores = [...filteredMatchups].filter((r) => r.win).sort((a, b) => a.score - b.score).slice(0, 3);
+    const highestLosingScores = [...filteredMatchups].filter((r) => !r.win).sort((a, b) => b.score - a.score).slice(0, 3);
+
     const pairMap = new Map<string, Matchup[]>();
     filteredMatchups.forEach((r) => {
       const key = [r.year, r.time_of_season, r.week, Math.min(r.manager_id, r.opponent_manager_id), Math.max(r.manager_id, r.opponent_manager_id)].join("-");
@@ -397,7 +403,7 @@ export default function HistoryPage() {
     const topPlayoffStreaks = [...allPlayoffRuns].filter((r) => r.type === "streak").sort((a, b) => b.length - a.length).slice(0, 3);
     const topPlayoffDroughts = [...allPlayoffRuns].filter((r) => r.type === "drought").sort((a, b) => b.length - a.length).slice(0, 3);
 
-    return { topScores, lowScores, topMargins, topWinsSeasons, topLossSeasons, topPointsSeasons, topPlayoffStreaks, topPlayoffDroughts };
+    return { topScores, lowScores, lowestWinningScores, highestLosingScores, topMargins, topWinsSeasons, topLossSeasons, topPointsSeasons, topPlayoffStreaks, topPlayoffDroughts };
   }, [filteredMatchups, regularSeasonMatchups, allPlayoffRuns]);
 
   // Same category set as League Records, scoped down to one manager's own games/seasons.
@@ -408,6 +414,8 @@ export default function HistoryPage() {
     const ownMatchups = filteredMatchups.filter((r) => r.manager_id === individualManagerId);
     const topScores = [...ownMatchups].sort((a, b) => b.score - a.score).slice(0, 3);
     const lowScores = [...ownMatchups].sort((a, b) => a.score - b.score).slice(0, 3);
+    const lowestWinningScores = [...ownMatchups].filter((r) => r.win).sort((a, b) => a.score - b.score).slice(0, 3);
+    const highestLosingScores = [...ownMatchups].filter((r) => !r.win).sort((a, b) => b.score - a.score).slice(0, 3);
 
     const pairMap = new Map<string, Matchup[]>();
     filteredMatchups.forEach((r) => {
@@ -445,7 +453,7 @@ export default function HistoryPage() {
     const topPlayoffStreaks = myRuns.filter((r) => r.type === "streak").sort((a, b) => b.length - a.length).slice(0, 2);
     const topPlayoffDroughts = myRuns.filter((r) => r.type === "drought").sort((a, b) => b.length - a.length).slice(0, 2);
 
-    return { topScores, lowScores, topMargins, topWinsSeasons, topLossSeasons, topPointsSeasons, topPlayoffStreaks, topPlayoffDroughts };
+    return { topScores, lowScores, lowestWinningScores, highestLosingScores, topMargins, topWinsSeasons, topLossSeasons, topPointsSeasons, topPlayoffStreaks, topPlayoffDroughts };
   }, [filteredMatchups, regularSeasonMatchups, allPlayoffRuns, recordsFilterId]);
 
   // Normalizes League Records (all managers) and Individual Records (one manager) into
@@ -461,6 +469,14 @@ export default function HistoryPage() {
         lowScores: leagueRecords.lowScores.map((g) => ({
           value: Number(g.score).toFixed(1),
           detail: `${managerName.get(g.manager_id)} \u00b7 ${g.year}${roundTag(g.time_of_season, g.round_game)}`,
+        })),
+        lowestWinningScores: leagueRecords.lowestWinningScores.map((g) => ({
+          value: Number(g.score).toFixed(1),
+          detail: `${managerName.get(g.manager_id)} def. ${managerName.get(g.opponent_manager_id)} \u00b7 ${g.year}${roundTag(g.time_of_season, g.round_game)}`,
+        })),
+        highestLosingScores: leagueRecords.highestLosingScores.map((g) => ({
+          value: Number(g.score).toFixed(1),
+          detail: `${managerName.get(g.manager_id)} lost to ${managerName.get(g.opponent_manager_id)} \u00b7 ${g.year}${roundTag(g.time_of_season, g.round_game)}`,
         })),
         topMargins: leagueRecords.topMargins.map((m) => ({
           value: `${m.margin.toFixed(1)} pts`,
@@ -497,6 +513,14 @@ export default function HistoryPage() {
       lowScores: individualRecords.lowScores.map((g) => ({
         value: Number(g.score).toFixed(1),
         detail: `${g.year} \u00b7 vs ${managerName.get(g.opponent_manager_id)}${roundTag(g.time_of_season, g.round_game)}`,
+      })),
+      lowestWinningScores: individualRecords.lowestWinningScores.map((g) => ({
+        value: Number(g.score).toFixed(1),
+        detail: `${g.year} \u00b7 def. ${managerName.get(g.opponent_manager_id)}${roundTag(g.time_of_season, g.round_game)}`,
+      })),
+      highestLosingScores: individualRecords.highestLosingScores.map((g) => ({
+        value: Number(g.score).toFixed(1),
+        detail: `${g.year} \u00b7 lost to ${managerName.get(g.opponent_manager_id)}${roundTag(g.time_of_season, g.round_game)}`,
       })),
       topMargins: individualRecords.topMargins.map((m) => ({
         value: `${m.margin.toFixed(1)} pts`,
@@ -743,6 +767,8 @@ export default function HistoryPage() {
               <div className="grid sm:grid-cols-2 gap-5">
                 <RecordCard title="Highest Single Score" entries={displayRecords.topScores} />
                 <RecordCard title="Lowest Single Score" entries={displayRecords.lowScores} />
+                <RecordCard title="Lowest Winning Score" entries={displayRecords.lowestWinningScores} />
+                <RecordCard title="Highest Losing Score" entries={displayRecords.highestLosingScores} />
                 <RecordCard title="Largest Win Margin" entries={displayRecords.topMargins} />
                 <RecordCard title="Most Wins, Single Season" entries={displayRecords.topWinsSeasons} />
                 <RecordCard title="Most Losses, Single Season" entries={displayRecords.topLossSeasons} />
