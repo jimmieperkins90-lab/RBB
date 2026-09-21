@@ -1,5 +1,11 @@
 import { supabase } from "@/lib/supabase";
 import StandingsTable from "./StandingsTable";
+import SeasonStatsPanel, {
+  ScoreStat,
+  MarginStat,
+  StreakStat,
+  TotalStat,
+} from "./SeasonStatsPanel";
 
 export const revalidate = 300;
 
@@ -7,6 +13,12 @@ function ordinalToNumber(v: string | null): number {
   if (!v) return 999;
   const n = parseInt(v, 10);
   return Number.isNaN(n) ? 999 : n;
+}
+
+// Regular -> Playoff -> Toilet Bowl, ascending week within each. Matches the
+// chronological ordering already used in StandingsTable's game-log expansion.
+function seasonOrder(t: string): number {
+  return t === "Regular" ? 0 : t === "Playoff" ? 1 : 2;
 }
 
 async function getSeasons() {
@@ -69,6 +81,168 @@ async function getPlayoffOdds(year: number) {
   return data ?? [];
 }
 
+type SeasonGame = {
+  manager_id: number;
+  managerName: string;
+  opponent_manager_id: number;
+  opponentName: string;
+  score: number;
+  opp_score: number;
+  win: boolean;
+  week: number;
+  time_of_season: string;
+};
+
+// Every played game this season, both perspectives (each manager gets their own
+// row for a given game). Used to derive all of the season-stats panel categories.
+async function getSeasonGames(year: number): Promise<SeasonGame[]> {
+  const { data } = await supabase
+    .from("matchups")
+    .select(
+      "manager_id, opponent_manager_id, score, opp_score, win, week, time_of_season, manager:manager_id(name), opponent:opponent_manager_id(name)"
+    )
+    .eq("year", year)
+    .eq("game_played", true);
+
+  return (data ?? []).map((r: any) => ({
+    manager_id: r.manager_id as number,
+    managerName: (r.manager?.name ?? "Unknown") as string,
+    opponent_manager_id: r.opponent_manager_id as number,
+    opponentName: (r.opponent?.name ?? "Unknown") as string,
+    score: Number(r.score ?? 0),
+    opp_score: Number(r.opp_score ?? 0),
+    win: Boolean(r.win),
+    week: r.week as number,
+    time_of_season: r.time_of_season as string,
+  }));
+}
+
+// Highest/lowest single-team score, biggest blowout, closest game, and longest
+// win/loss streaks — computed across ALL played games (regular + playoff + TB).
+function computeAllGameStats(games: SeasonGame[]) {
+  let highest: ScoreStat | null = null;
+  let lowest: ScoreStat | null = null;
+
+  games.forEach((g) => {
+    if (!highest || g.score > highest.value) {
+      highest = {
+        value: g.score,
+        managerName: g.managerName,
+        opponentName: g.opponentName,
+        week: g.week,
+        time_of_season: g.time_of_season,
+      };
+    }
+    if (!lowest || g.score < lowest.value) {
+      lowest = {
+        value: g.score,
+        managerName: g.managerName,
+        opponentName: g.opponentName,
+        week: g.week,
+        time_of_season: g.time_of_season,
+      };
+    }
+  });
+
+  // Each real game appears twice (once per team's perspective) — use the winner's
+  // row only so blowout/closest each represent one game, not two.
+  let blowout: MarginStat | null = null;
+  let closest: MarginStat | null = null;
+
+  games
+    .filter((g) => g.win)
+    .forEach((g) => {
+      const margin = g.score - g.opp_score;
+      const stat: MarginStat = {
+        margin,
+        winnerName: g.managerName,
+        loserName: g.opponentName,
+        winnerScore: g.score,
+        loserScore: g.opp_score,
+        week: g.week,
+        time_of_season: g.time_of_season,
+      };
+      if (!blowout || margin > blowout.margin) blowout = stat;
+      if (!closest || margin < closest.margin) closest = stat;
+    });
+
+  const byManager = new Map<number, SeasonGame[]>();
+  games.forEach((g) => {
+    const list = byManager.get(g.manager_id) ?? [];
+    list.push(g);
+    byManager.set(g.manager_id, list);
+  });
+
+  let longestWinStreak: StreakStat = { length: 0, managers: [] };
+  let longestLossStreak: StreakStat = { length: 0, managers: [] };
+
+  byManager.forEach((managerGames) => {
+    const sorted = [...managerGames].sort(
+      (a, b) => seasonOrder(a.time_of_season) - seasonOrder(b.time_of_season) || a.week - b.week
+    );
+    const name = sorted[0]?.managerName ?? "Unknown";
+    let curWin = 0;
+    let curLoss = 0;
+    let maxWin = 0;
+    let maxLoss = 0;
+    sorted.forEach((g) => {
+      if (g.win) {
+        curWin += 1;
+        curLoss = 0;
+      } else {
+        curLoss += 1;
+        curWin = 0;
+      }
+      maxWin = Math.max(maxWin, curWin);
+      maxLoss = Math.max(maxLoss, curLoss);
+    });
+
+    if (maxWin > longestWinStreak.length) {
+      longestWinStreak = { length: maxWin, managers: [name] };
+    } else if (maxWin === longestWinStreak.length && maxWin > 0) {
+      longestWinStreak = { ...longestWinStreak, managers: [...longestWinStreak.managers, name] };
+    }
+
+    if (maxLoss > longestLossStreak.length) {
+      longestLossStreak = { length: maxLoss, managers: [name] };
+    } else if (maxLoss === longestLossStreak.length && maxLoss > 0) {
+      longestLossStreak = { ...longestLossStreak, managers: [...longestLossStreak.managers, name] };
+    }
+  });
+
+  return { highest, lowest, blowout, closest, longestWinStreak, longestLossStreak };
+}
+
+// Most total PF, most total PA, best/worst season-long margin — regular season
+// games only, per the "these new ones are for regular season only" instruction.
+function computeRegularSeasonTotals(games: SeasonGame[]) {
+  const totals = new Map<number, { name: string; pf: number; pa: number }>();
+
+  games
+    .filter((g) => g.time_of_season === "Regular")
+    .forEach((g) => {
+      const cur = totals.get(g.manager_id) ?? { name: g.managerName, pf: 0, pa: 0 };
+      cur.pf += g.score;
+      cur.pa += g.opp_score;
+      totals.set(g.manager_id, cur);
+    });
+
+  let mostPF: TotalStat | null = null;
+  let mostPA: TotalStat | null = null;
+  let bestMargin: TotalStat | null = null;
+  let worstMargin: TotalStat | null = null;
+
+  totals.forEach((t) => {
+    const margin = t.pf - t.pa;
+    if (!mostPF || t.pf > mostPF.value) mostPF = { value: t.pf, managerName: t.name };
+    if (!mostPA || t.pa > mostPA.value) mostPA = { value: t.pa, managerName: t.name };
+    if (!bestMargin || margin > bestMargin.value) bestMargin = { value: margin, managerName: t.name };
+    if (!worstMargin || margin < worstMargin.value) worstMargin = { value: margin, managerName: t.name };
+  });
+
+  return { mostPF, mostPA, bestMargin, worstMargin };
+}
+
 export default async function StandingsPage({
   searchParams,
 }: {
@@ -78,12 +252,15 @@ export default async function StandingsPage({
   const latestYear = seasons[0]?.year ?? 2025;
   const year = searchParams.year ? parseInt(searchParams.year, 10) : latestYear;
 
-  const [{ rows: standings, seasonComplete }, playoffOdds] = await Promise.all([
+  const [{ rows: standings, seasonComplete }, playoffOdds, seasonGames] = await Promise.all([
     getStandings(year),
     getPlayoffOdds(year),
+    getSeasonGames(year),
   ]);
 
   const hasDivisions = standings.some((r) => r.division);
+  const allGameStats = computeAllGameStats(seasonGames);
+  const regularSeasonTotals = computeRegularSeasonTotals(seasonGames);
 
   return (
     <div>
@@ -124,6 +301,10 @@ export default async function StandingsPage({
           <h2 className="font-display text-4xl text-gravy chalk-shadow">{year} STANDINGS</h2>
           <div className="menu-divider w-40 mx-auto mt-3" />
         </div>
+
+        {seasonGames.length > 0 && (
+          <SeasonStatsPanel allGameStats={allGameStats} regularSeasonTotals={regularSeasonTotals} />
+        )}
 
         {standings.length === 0 && (
           <p className="text-center font-body text-gravy/70">No standings found for {year} yet.</p>
