@@ -95,7 +95,7 @@ export default function HistoryPage() {
 
   const [yearFilter, setYearFilter] = useState<"all" | number>("all");
   const [teamCountFilter, setTeamCountFilter] = useState<"all" | 10 | 12>(12);
-  const [seasonType, setSeasonType] = useState<"all" | "regular" | "playoffs">("all");
+  const [seasonType, setSeasonType] = useState<"all" | "regular" | "playoffs" | "tb">("all");
   const [recordsFilterId, setRecordsFilterId] = useState<number | "all">("all");
 
   useEffect(() => {
@@ -140,7 +140,8 @@ export default function HistoryPage() {
       if (yearFilter !== "all" && r.year !== yearFilter) return false;
       if (teamCountFilter !== "all" && yearToTeams.get(r.year) !== teamCountFilter) return false;
       if (seasonType === "regular" && r.time_of_season !== "Regular") return false;
-      if (seasonType === "playoffs" && r.time_of_season !== "Playoff" && r.time_of_season !== "TB") return false;
+      if (seasonType === "playoffs" && r.time_of_season !== "Playoff") return false;
+      if (seasonType === "tb" && r.time_of_season !== "TB") return false;
       return true;
     });
   }, [matchups, yearFilter, teamCountFilter, seasonType, yearToTeams]);
@@ -632,7 +633,7 @@ export default function HistoryPage() {
         <div>
           <p className="text-center font-mono text-[10px] uppercase text-gravy/50 mb-2">Game Type</p>
           <div className="flex flex-wrap items-center gap-1.5 justify-center">
-            {(["all", "regular", "playoffs"] as const).map((v) => (
+            {(["all", "regular", "playoffs", "tb"] as const).map((v) => (
               <button
                 key={v}
                 onClick={() => setSeasonType(v)}
@@ -640,7 +641,7 @@ export default function HistoryPage() {
                   seasonType === v ? "bg-goldenrod text-coffee border-goldenrod" : "bg-transparent text-gravy border-biscuit hover:border-goldenrod"
                 }`}
               >
-                {v === "all" ? "All" : v === "regular" ? "Regular Season" : "Playoffs"}
+                {v === "all" ? "All" : v === "regular" ? "Regular Season" : v === "playoffs" ? "Playoffs" : "Toilet Bowl"}
               </button>
             ))}
           </div>
