@@ -21,6 +21,141 @@ function seasonOrder(t: string): number {
   return t === "Regular" ? 0 : t === "Playoff" ? 1 : 2;
 }
 
+// Pages through a Supabase query in chunks so results are never silently
+// truncated by the project's "Max Rows" API setting — needed here because a
+// full season of lineups (all managers, all weeks, all roster spots) can
+// easily exceed 1000 rows.
+async function fetchAllRows<T>(
+  buildQuery: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: any }>,
+  pageSize = 1000
+): Promise<T[]> {
+  let all: T[] = [];
+  let from = 0;
+  for (;;) {
+    const { data, error } = await buildQuery(from, from + pageSize - 1);
+    if (error) throw error;
+    const rows = data ?? [];
+    all = all.concat(rows);
+    if (rows.length < pageSize) break;
+    from += pageSize;
+  }
+  return all;
+}
+
+// --- Optimal-lineup solver (same algorithm used in StandingsTable.tsx for the
+// per-manager week-by-week expansion — duplicated here so this file can
+// compute season totals for every manager server-side without depending on a
+// "use client" module). See StandingsTable.tsx for full explanation.
+
+const BIG = 10000;
+const PENALTY = 1000000;
+
+function canonicalPosition(pos: string): string {
+  const p = pos.trim().toUpperCase();
+  return p === "DST" ? "DEF" : p;
+}
+
+function parseEligiblePositions(playerPosition: string | null): Set<string> {
+  if (!playerPosition) return new Set();
+  const parts = playerPosition.split("/").map(canonicalPosition);
+  const set = new Set(parts);
+  if (set.has("RB") || set.has("WR") || set.has("TE")) set.add("FLEX");
+  return set;
+}
+
+function slotMatches(slotType: string, eligible: Set<string>): boolean {
+  return eligible.has(slotType);
+}
+
+function hungarianMinCost(cost: number[][]): number[] {
+  const n = cost.length;
+  const INF = Infinity;
+  const u = new Array(n + 1).fill(0);
+  const v = new Array(n + 1).fill(0);
+  const p = new Array(n + 1).fill(0);
+  const way = new Array(n + 1).fill(0);
+
+  for (let i = 1; i <= n; i++) {
+    p[0] = i;
+    let j0 = 0;
+    const minv = new Array(n + 1).fill(INF);
+    const used = new Array(n + 1).fill(false);
+    do {
+      used[j0] = true;
+      const i0 = p[j0];
+      let delta = INF;
+      let j1 = -1;
+      for (let j = 1; j <= n; j++) {
+        if (!used[j]) {
+          const cur = cost[i0 - 1][j - 1] - u[i0] - v[j];
+          if (cur < minv[j]) {
+            minv[j] = cur;
+            way[j] = j0;
+          }
+          if (minv[j] < delta) {
+            delta = minv[j];
+            j1 = j;
+          }
+        }
+      }
+      for (let j = 0; j <= n; j++) {
+        if (used[j]) {
+          u[p[j]] += delta;
+          v[j] -= delta;
+        } else {
+          minv[j] -= delta;
+        }
+      }
+      j0 = j1;
+    } while (p[j0] !== 0);
+    do {
+      const j1 = way[j0];
+      p[j0] = p[j1];
+      j0 = j1;
+    } while (j0 !== 0);
+  }
+
+  const rowToCol = new Array(n).fill(-1);
+  for (let j = 1; j <= n; j++) {
+    if (p[j] > 0) rowToCol[p[j] - 1] = j - 1;
+  }
+  return rowToCol;
+}
+
+function computeOptimalPoints(slotTypes: string[], pool: { points: number; eligible: Set<string> }[]): number {
+  if (slotTypes.length === 0) return 0;
+  const n = Math.max(slotTypes.length, pool.length);
+  const cost: number[][] = [];
+
+  for (let i = 0; i < n; i++) {
+    const row: number[] = [];
+    const isDummySlot = i >= slotTypes.length;
+    for (let j = 0; j < n; j++) {
+      const isDummyPlayer = j >= pool.length;
+      if (isDummySlot || isDummyPlayer) {
+        row.push(BIG);
+      } else if (slotMatches(slotTypes[i], pool[j].eligible)) {
+        row.push(BIG - pool[j].points);
+      } else {
+        row.push(BIG + PENALTY);
+      }
+    }
+    cost.push(row);
+  }
+
+  const rowToCol = hungarianMinCost(cost);
+  let total = 0;
+  for (let i = 0; i < slotTypes.length; i++) {
+    const j = rowToCol[i];
+    if (j >= 0 && j < pool.length && slotMatches(slotTypes[i], pool[j].eligible)) {
+      total += pool[j].points;
+    }
+  }
+  return total;
+}
+
+// -----------------------------------------------------------------------
+
 async function getSeasons() {
   const { data } = await supabase.from("seasons").select("year, num_teams").order("year", { ascending: false });
   return data ?? [];
@@ -79,6 +214,63 @@ async function getPlayoffOdds(year: number) {
     .select("manager_id, playoff_pct, as_of_week")
     .eq("year", year);
   return data ?? [];
+}
+
+type PossiblePointsRow = {
+  manager_id: number;
+  pctPlayed: number;
+  totalLeftOnBench: number;
+  avgLeftOnBench: number;
+};
+
+// Season-long "coach's efficiency" totals per manager: actual points scored vs.
+// the optimal lineup possible each week (IR excluded from the possible pool),
+// summed across every played week including playoffs/TB — same scope as the
+// per-manager expansion in StandingsTable.tsx, just aggregated for everyone
+// up front so it can show in the main table.
+async function getPossiblePointsStats(year: number): Promise<PossiblePointsRow[]> {
+  const lineups = await fetchAllRows<any>((from, to) =>
+    supabase
+      .from("lineups")
+      .select("manager_id, week, lineup_pos, player_position, points")
+      .eq("year", year)
+      .neq("lineup_pos", "IR")
+      .range(from, to)
+  );
+
+  const byManagerWeek = new Map<number, Map<number, { lineup_pos: string; player_position: string | null; points: number }[]>>();
+  lineups.forEach((r: any) => {
+    const byWeek = byManagerWeek.get(r.manager_id) ?? new Map();
+    const list = byWeek.get(r.week) ?? [];
+    list.push({ lineup_pos: r.lineup_pos, player_position: r.player_position, points: Number(r.points ?? 0) });
+    byWeek.set(r.week, list);
+    byManagerWeek.set(r.manager_id, byWeek);
+  });
+
+  const results: PossiblePointsRow[] = [];
+  byManagerWeek.forEach((byWeek, managerId) => {
+    let totalActual = 0;
+    let totalPossible = 0;
+    let games = 0;
+    byWeek.forEach((weekRows) => {
+      const actual = weekRows.filter((r) => r.lineup_pos !== "BN").reduce((sum, r) => sum + r.points, 0);
+      const slotTypes = weekRows.filter((r) => r.lineup_pos !== "BN").map((r) => canonicalPosition(r.lineup_pos));
+      const pool = weekRows.map((r) => ({ points: r.points, eligible: parseEligiblePositions(r.player_position) }));
+      const possible = computeOptimalPoints(slotTypes, pool);
+      totalActual += actual;
+      totalPossible += possible;
+      games += 1;
+    });
+    const totalLeftOnBench = totalPossible - totalActual;
+    results.push({
+      manager_id: managerId,
+      pctPlayed: totalPossible > 0 ? (totalActual / totalPossible) * 100 : 0,
+      totalLeftOnBench,
+      avgLeftOnBench: games > 0 ? totalLeftOnBench / games : 0,
+    });
+  });
+
+  return results;
 }
 
 type SeasonGame = {
@@ -252,10 +444,11 @@ export default async function StandingsPage({
   const latestYear = seasons[0]?.year ?? 2025;
   const year = searchParams.year ? parseInt(searchParams.year, 10) : latestYear;
 
-  const [{ rows: standings, seasonComplete }, playoffOdds, seasonGames] = await Promise.all([
+  const [{ rows: standings, seasonComplete }, playoffOdds, seasonGames, possiblePointsStats] = await Promise.all([
     getStandings(year),
     getPlayoffOdds(year),
     getSeasonGames(year),
+    getPossiblePointsStats(year),
   ]);
 
   const hasDivisions = standings.some((r) => r.division);
@@ -317,6 +510,7 @@ export default async function StandingsPage({
             hasDivisions={hasDivisions}
             seasonComplete={seasonComplete}
             playoffOdds={playoffOdds}
+            possiblePointsStats={possiblePointsStats}
           />
         )}
       </section>
