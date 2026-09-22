@@ -18,6 +18,13 @@ type PlayoffOddsRow = {
   as_of_week: number;
 };
 
+type PossiblePointsRow = {
+  manager_id: number;
+  pctPlayed: number;
+  totalLeftOnBench: number;
+  avgLeftOnBench: number;
+};
+
 type GameRow = {
   week: number;
   time_of_season: string;
@@ -174,12 +181,14 @@ export default function StandingsTable({
   hasDivisions,
   seasonComplete,
   playoffOdds,
+  possiblePointsStats,
 }: {
   standings: StandingRow[];
   year: number;
   hasDivisions: boolean;
   seasonComplete: boolean;
   playoffOdds: PlayoffOddsRow[];
+  possiblePointsStats: PossiblePointsRow[];
 }) {
   const [openManagerId, setOpenManagerId] = useState<number | null>(null);
   const [gamesByManager, setGamesByManager] = useState<Record<number, GameRow[]>>({});
@@ -192,8 +201,9 @@ export default function StandingsTable({
 
   const oddsByManager = new Map(playoffOdds.map((o) => [o.manager_id, o]));
   const oddsAsOfWeek = playoffOdds[0]?.as_of_week;
+  const possibleByManager = new Map(possiblePointsStats.map((p) => [p.manager_id, p]));
 
-  const colCount = (hasDivisions ? 7 : 6);
+  const colCount = (hasDivisions ? 7 : 6) + 3;
 
   const seasonOrder = (t: string) => (t === "Regular" ? 0 : t === "Playoff" ? 1 : 2);
 
@@ -315,6 +325,9 @@ export default function StandingsTable({
             <th className="text-center py-2 font-semibold">Record</th>
             <th className="text-center py-2 font-semibold">PF</th>
             <th className="text-center py-2 font-semibold">PA</th>
+            <th className="text-center py-2 font-semibold">% Max</th>
+            <th className="text-center py-2 font-semibold">Bench Pts</th>
+            <th className="text-center py-2 font-semibold">Avg Bench</th>
             <th className="text-center pr-4 py-2 font-semibold">
               {seasonComplete ? "Finish" : "Playoff Odds"}
             </th>
@@ -342,6 +355,7 @@ export default function StandingsTable({
                 <td className="text-center py-2 font-mono">{t.record.w}-{t.record.l}</td>
                 <td className="text-center py-2 font-mono">{t.record.pf.toFixed(1)}</td>
                 <td className="text-center py-2 font-mono">{t.record.pa.toFixed(1)}</td>
+                <PossiblePointsCells stats={possibleByManager.get(t.manager_id)} />
                 <td className="text-center pr-4 py-2 font-mono font-bold">
                   {seasonComplete ? (
                     <span className="text-burnt">{t.final_place ?? "\u2014"}</span>
@@ -427,6 +441,29 @@ export default function StandingsTable({
         </p>
       )}
     </div>
+  );
+}
+
+// Season-long "coach's efficiency" cells: % of possible points actually scored,
+// total points left on the bench, and the per-game average of that — all computed
+// server-side in page.tsx from the same optimal-lineup solver as the per-manager
+// week-by-week expansion below. Renders "—" for a season with no lineup data yet.
+function PossiblePointsCells({ stats }: { stats: PossiblePointsRow | undefined }) {
+  if (!stats) {
+    return (
+      <>
+        <td className="text-center py-2 font-mono text-gravy/40">{"\u2014"}</td>
+        <td className="text-center py-2 font-mono text-gravy/40">{"\u2014"}</td>
+        <td className="text-center py-2 font-mono text-gravy/40">{"\u2014"}</td>
+      </>
+    );
+  }
+  return (
+    <>
+      <td className="text-center py-2 font-mono">{stats.pctPlayed.toFixed(1)}%</td>
+      <td className="text-center py-2 font-mono">{stats.totalLeftOnBench.toFixed(1)}</td>
+      <td className="text-center py-2 font-mono">{stats.avgLeftOnBench.toFixed(1)}</td>
+    </>
   );
 }
 
