@@ -211,7 +211,7 @@ async function getStandings(year: number) {
 async function getPlayoffOdds(year: number) {
   const { data } = await supabase
     .from("playoff_odds")
-    .select("manager_id, playoff_pct, as_of_week")
+    .select("manager_id, playoff_pct, bye_pct, as_of_week")
     .eq("year", year);
   return data ?? [];
 }
