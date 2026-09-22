@@ -5,6 +5,7 @@ import SeasonStatsPanel, {
   MarginStat,
   StreakStat,
   TotalStat,
+  PctStat,
 } from "./SeasonStatsPanel";
 
 export const revalidate = 300;
@@ -227,16 +228,24 @@ type PossiblePointsRow = {
 // the optimal lineup possible each week (IR excluded from the possible pool),
 // summed across every played week including playoffs/TB — same scope as the
 // per-manager expansion in StandingsTable.tsx, just aggregated for everyone
-// up front so it can show in the main table.
-async function getPossiblePointsStats(year: number): Promise<PossiblePointsRow[]> {
-  const lineups = await fetchAllRows<any>((from, to) =>
-    supabase
-      .from("lineups")
-      .select("manager_id, week, lineup_pos, player_position, points")
-      .eq("year", year)
-      .neq("lineup_pos", "IR")
-      .range(from, to)
-  );
+// up front so it can show in the main table. Also tracks the single best/worst
+// week (by %) across the whole season, for the Season Stats panel.
+async function getPossiblePointsStats(
+  year: number
+): Promise<{ results: PossiblePointsRow[]; highestPct: PctStat | null; lowestPct: PctStat | null }> {
+  const [lineups, managersRes] = await Promise.all([
+    fetchAllRows<any>((from, to) =>
+      supabase
+        .from("lineups")
+        .select("manager_id, week, lineup_pos, player_position, points")
+        .eq("year", year)
+        .neq("lineup_pos", "IR")
+        .range(from, to)
+    ),
+    supabase.from("managers").select("id, name"),
+  ]);
+
+  const managerName = new Map((managersRes.data ?? []).map((m: any) => [m.id as number, m.name as string]));
 
   const byManagerWeek = new Map<number, Map<number, { lineup_pos: string; player_position: string | null; points: number }[]>>();
   lineups.forEach((r: any) => {
@@ -247,12 +256,27 @@ async function getPossiblePointsStats(year: number): Promise<PossiblePointsRow[]
     byManagerWeek.set(r.manager_id, byWeek);
   });
 
+  // time_of_season isn't stored on lineups, only matchups — pull a week -> time_of_season
+  // map so the single-week high/low % record can label which bracket it happened in.
+  const { data: matchupWeeks } = await supabase
+    .from("matchups")
+    .select("manager_id, week, time_of_season")
+    .eq("year", year)
+    .eq("game_played", true);
+  const timeOfSeasonByManagerWeek = new Map<string, string>();
+  (matchupWeeks ?? []).forEach((m: any) => {
+    timeOfSeasonByManagerWeek.set(`${m.manager_id}-${m.week}`, m.time_of_season);
+  });
+
   const results: PossiblePointsRow[] = [];
+  let highestPct: PctStat | null = null;
+  let lowestPct: PctStat | null = null;
+
   byManagerWeek.forEach((byWeek, managerId) => {
     let totalActual = 0;
     let totalPossible = 0;
     let games = 0;
-    byWeek.forEach((weekRows) => {
+    byWeek.forEach((weekRows, week) => {
       const actual = weekRows.filter((r) => r.lineup_pos !== "BN").reduce((sum, r) => sum + r.points, 0);
       const slotTypes = weekRows.filter((r) => r.lineup_pos !== "BN").map((r) => canonicalPosition(r.lineup_pos));
       const pool = weekRows.map((r) => ({ points: r.points, eligible: parseEligiblePositions(r.player_position) }));
@@ -260,6 +284,20 @@ async function getPossiblePointsStats(year: number): Promise<PossiblePointsRow[]
       totalActual += actual;
       totalPossible += possible;
       games += 1;
+
+      if (possible > 0) {
+        const pct = (actual / possible) * 100;
+        const stat: PctStat = {
+          value: pct,
+          managerName: managerName.get(managerId) ?? "Unknown",
+          actual,
+          possible,
+          week,
+          time_of_season: timeOfSeasonByManagerWeek.get(`${managerId}-${week}`) ?? "Regular",
+        };
+        if (!highestPct || pct > highestPct.value) highestPct = stat;
+        if (!lowestPct || pct < lowestPct.value) lowestPct = stat;
+      }
     });
     const totalLeftOnBench = totalPossible - totalActual;
     results.push({
@@ -270,7 +308,7 @@ async function getPossiblePointsStats(year: number): Promise<PossiblePointsRow[]
     });
   });
 
-  return results;
+  return { results, highestPct, lowestPct };
 }
 
 type SeasonGame = {
@@ -444,12 +482,13 @@ export default async function StandingsPage({
   const latestYear = seasons[0]?.year ?? 2025;
   const year = searchParams.year ? parseInt(searchParams.year, 10) : latestYear;
 
-  const [{ rows: standings, seasonComplete }, playoffOdds, seasonGames, possiblePointsStats] = await Promise.all([
+  const [{ rows: standings, seasonComplete }, playoffOdds, seasonGames, possiblePoints] = await Promise.all([
     getStandings(year),
     getPlayoffOdds(year),
     getSeasonGames(year),
     getPossiblePointsStats(year),
   ]);
+  const { results: possiblePointsStats, highestPct, lowestPct } = possiblePoints;
 
   const hasDivisions = standings.some((r) => r.division);
   const allGameStats = computeAllGameStats(seasonGames);
@@ -496,7 +535,12 @@ export default async function StandingsPage({
         </div>
 
         {seasonGames.length > 0 && (
-          <SeasonStatsPanel allGameStats={allGameStats} regularSeasonTotals={regularSeasonTotals} />
+          <SeasonStatsPanel
+            allGameStats={allGameStats}
+            regularSeasonTotals={regularSeasonTotals}
+            highestPct={highestPct}
+            lowestPct={lowestPct}
+          />
         )}
 
         {standings.length === 0 && (
