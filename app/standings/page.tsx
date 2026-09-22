@@ -5,7 +5,6 @@ import SeasonStatsPanel, {
   MarginStat,
   StreakStat,
   TotalStat,
-  PctStat,
 } from "./SeasonStatsPanel";
 
 export const revalidate = 300;
@@ -219,20 +218,29 @@ async function getPlayoffOdds(year: number) {
 
 type PossiblePointsRow = {
   manager_id: number;
+  totalActual: number;
+  totalPossible: number;
   pctPlayed: number;
   totalLeftOnBench: number;
   avgLeftOnBench: number;
+};
+
+type SeasonPctStat = {
+  value: number;
+  managerName: string;
+  actual: number;
+  possible: number;
 };
 
 // Season-long "coach's efficiency" totals per manager: actual points scored vs.
 // the optimal lineup possible each week (IR excluded from the possible pool),
 // summed across every played week including playoffs/TB — same scope as the
 // per-manager expansion in StandingsTable.tsx, just aggregated for everyone
-// up front so it can show in the main table. Also tracks the single best/worst
-// week (by %) across the whole season, for the Season Stats panel.
+// up front so it can show in the main table. Also identifies the manager with
+// the best/worst season-long % of max, for the Season Stats panel.
 async function getPossiblePointsStats(
   year: number
-): Promise<{ results: PossiblePointsRow[]; highestPct: PctStat | null; lowestPct: PctStat | null }> {
+): Promise<{ results: PossiblePointsRow[]; highestSeasonPct: SeasonPctStat | null; lowestSeasonPct: SeasonPctStat | null }> {
   const [lineups, managersRes] = await Promise.all([
     fetchAllRows<any>((from, to) =>
       supabase
@@ -256,27 +264,13 @@ async function getPossiblePointsStats(
     byManagerWeek.set(r.manager_id, byWeek);
   });
 
-  // time_of_season isn't stored on lineups, only matchups — pull a week -> time_of_season
-  // map so the single-week high/low % record can label which bracket it happened in.
-  const { data: matchupWeeks } = await supabase
-    .from("matchups")
-    .select("manager_id, week, time_of_season")
-    .eq("year", year)
-    .eq("game_played", true);
-  const timeOfSeasonByManagerWeek = new Map<string, string>();
-  (matchupWeeks ?? []).forEach((m: any) => {
-    timeOfSeasonByManagerWeek.set(`${m.manager_id}-${m.week}`, m.time_of_season);
-  });
-
   const results: PossiblePointsRow[] = [];
-  let highestPct: PctStat | null = null;
-  let lowestPct: PctStat | null = null;
 
   byManagerWeek.forEach((byWeek, managerId) => {
     let totalActual = 0;
     let totalPossible = 0;
     let games = 0;
-    byWeek.forEach((weekRows, week) => {
+    byWeek.forEach((weekRows) => {
       const actual = weekRows.filter((r) => r.lineup_pos !== "BN").reduce((sum, r) => sum + r.points, 0);
       const slotTypes = weekRows.filter((r) => r.lineup_pos !== "BN").map((r) => canonicalPosition(r.lineup_pos));
       const pool = weekRows.map((r) => ({ points: r.points, eligible: parseEligiblePositions(r.player_position) }));
@@ -284,31 +278,33 @@ async function getPossiblePointsStats(
       totalActual += actual;
       totalPossible += possible;
       games += 1;
-
-      if (possible > 0) {
-        const pct = (actual / possible) * 100;
-        const stat: PctStat = {
-          value: pct,
-          managerName: managerName.get(managerId) ?? "Unknown",
-          actual,
-          possible,
-          week,
-          time_of_season: timeOfSeasonByManagerWeek.get(`${managerId}-${week}`) ?? "Regular",
-        };
-        if (!highestPct || pct > highestPct.value) highestPct = stat;
-        if (!lowestPct || pct < lowestPct.value) lowestPct = stat;
-      }
     });
     const totalLeftOnBench = totalPossible - totalActual;
     results.push({
       manager_id: managerId,
+      totalActual,
+      totalPossible,
       pctPlayed: totalPossible > 0 ? (totalActual / totalPossible) * 100 : 0,
       totalLeftOnBench,
       avgLeftOnBench: games > 0 ? totalLeftOnBench / games : 0,
     });
   });
 
-  return { results, highestPct, lowestPct };
+  let highestSeasonPct: SeasonPctStat | null = null;
+  let lowestSeasonPct: SeasonPctStat | null = null;
+  results.forEach((r) => {
+    if (r.totalPossible <= 0) return;
+    const stat: SeasonPctStat = {
+      value: r.pctPlayed,
+      managerName: managerName.get(r.manager_id) ?? "Unknown",
+      actual: r.totalActual,
+      possible: r.totalPossible,
+    };
+    if (!highestSeasonPct || stat.value > highestSeasonPct.value) highestSeasonPct = stat;
+    if (!lowestSeasonPct || stat.value < lowestSeasonPct.value) lowestSeasonPct = stat;
+  });
+
+  return { results, highestSeasonPct, lowestSeasonPct };
 }
 
 type SeasonGame = {
@@ -488,7 +484,7 @@ export default async function StandingsPage({
     getSeasonGames(year),
     getPossiblePointsStats(year),
   ]);
-  const { results: possiblePointsStats, highestPct, lowestPct } = possiblePoints;
+  const { results: possiblePointsStats, highestSeasonPct, lowestSeasonPct } = possiblePoints;
 
   const hasDivisions = standings.some((r) => r.division);
   const allGameStats = computeAllGameStats(seasonGames);
@@ -538,8 +534,8 @@ export default async function StandingsPage({
           <SeasonStatsPanel
             allGameStats={allGameStats}
             regularSeasonTotals={regularSeasonTotals}
-            highestPct={highestPct}
-            lowestPct={lowestPct}
+            highestSeasonPct={highestSeasonPct}
+            lowestSeasonPct={lowestSeasonPct}
           />
         )}
 
