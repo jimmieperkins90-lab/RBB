@@ -386,24 +386,31 @@ export default function HistoryPage() {
     margins.sort((a, b) => b.margin - a.margin);
     const topMargins = margins.slice(0, 3);
 
-    const seasonMap = new Map<string, { manager_id: number; year: number; w: number; l: number; pf: number }>();
+    const seasonMap = new Map<string, { manager_id: number; year: number; w: number; l: number; pf: number; pa: number }>();
     regularSeasonMatchups.forEach((r) => {
       const key = `${r.manager_id}-${r.year}`;
-      if (!seasonMap.has(key)) seasonMap.set(key, { manager_id: r.manager_id, year: r.year, w: 0, l: 0, pf: 0 });
+      if (!seasonMap.has(key)) seasonMap.set(key, { manager_id: r.manager_id, year: r.year, w: 0, l: 0, pf: 0, pa: 0 });
       const s = seasonMap.get(key)!;
       if (r.win) s.w += 1;
       else s.l += 1;
       s.pf += Number(r.score ?? 0);
+      s.pa += Number(r.opp_score ?? 0);
     });
     const seasonRows = Array.from(seasonMap.values());
     const topWinsSeasons = [...seasonRows].sort((a, b) => b.w - a.w || b.pf - a.pf).slice(0, 3);
     const topLossSeasons = [...seasonRows].sort((a, b) => b.l - a.l || a.w - b.w).slice(0, 3);
     const topPointsSeasons = [...seasonRows].sort((a, b) => b.pf - a.pf).slice(0, 3);
 
+    // Season-long point differential (PF - PA), regular season only. Best = biggest
+    // positive gap, worst = biggest negative gap.
+    const seasonDiffRows = seasonRows.map((s) => ({ ...s, diff: s.pf - s.pa }));
+    const bestDiffSeasons = [...seasonDiffRows].sort((a, b) => b.diff - a.diff).slice(0, 3);
+    const worstDiffSeasons = [...seasonDiffRows].sort((a, b) => a.diff - b.diff).slice(0, 3);
+
     const topPlayoffStreaks = [...allPlayoffRuns].filter((r) => r.type === "streak").sort((a, b) => b.length - a.length).slice(0, 3);
     const topPlayoffDroughts = [...allPlayoffRuns].filter((r) => r.type === "drought").sort((a, b) => b.length - a.length).slice(0, 3);
 
-    return { topScores, lowScores, lowestWinningScores, highestLosingScores, topMargins, topWinsSeasons, topLossSeasons, topPointsSeasons, topPlayoffStreaks, topPlayoffDroughts };
+    return { topScores, lowScores, lowestWinningScores, highestLosingScores, topMargins, topWinsSeasons, topLossSeasons, topPointsSeasons, bestDiffSeasons, worstDiffSeasons, topPlayoffStreaks, topPlayoffDroughts };
   }, [filteredMatchups, regularSeasonMatchups, allPlayoffRuns]);
 
   // Same category set as League Records, scoped down to one manager's own games/seasons.
@@ -436,24 +443,29 @@ export default function HistoryPage() {
     const topMargins = winMargins.slice(0, 3);
 
     const ownRegularMatchups = regularSeasonMatchups.filter((r) => r.manager_id === individualManagerId);
-    const seasonMap = new Map<number, { year: number; w: number; l: number; pf: number }>();
+    const seasonMap = new Map<number, { year: number; w: number; l: number; pf: number; pa: number }>();
     ownRegularMatchups.forEach((r) => {
-      if (!seasonMap.has(r.year)) seasonMap.set(r.year, { year: r.year, w: 0, l: 0, pf: 0 });
+      if (!seasonMap.has(r.year)) seasonMap.set(r.year, { year: r.year, w: 0, l: 0, pf: 0, pa: 0 });
       const s = seasonMap.get(r.year)!;
       if (r.win) s.w += 1;
       else s.l += 1;
       s.pf += Number(r.score ?? 0);
+      s.pa += Number(r.opp_score ?? 0);
     });
     const seasonRows = Array.from(seasonMap.values());
     const topWinsSeasons = [...seasonRows].sort((a, b) => b.w - a.w || b.pf - a.pf).slice(0, 3);
     const topLossSeasons = [...seasonRows].sort((a, b) => b.l - a.l || a.w - b.w).slice(0, 3);
     const topPointsSeasons = [...seasonRows].sort((a, b) => b.pf - a.pf).slice(0, 3);
 
+    const seasonDiffRows = seasonRows.map((s) => ({ ...s, diff: s.pf - s.pa }));
+    const bestDiffSeasons = [...seasonDiffRows].sort((a, b) => b.diff - a.diff).slice(0, 3);
+    const worstDiffSeasons = [...seasonDiffRows].sort((a, b) => a.diff - b.diff).slice(0, 3);
+
     const myRuns = allPlayoffRuns.filter((r) => r.managerId === individualManagerId);
     const topPlayoffStreaks = myRuns.filter((r) => r.type === "streak").sort((a, b) => b.length - a.length).slice(0, 2);
     const topPlayoffDroughts = myRuns.filter((r) => r.type === "drought").sort((a, b) => b.length - a.length).slice(0, 2);
 
-    return { topScores, lowScores, lowestWinningScores, highestLosingScores, topMargins, topWinsSeasons, topLossSeasons, topPointsSeasons, topPlayoffStreaks, topPlayoffDroughts };
+    return { topScores, lowScores, lowestWinningScores, highestLosingScores, topMargins, topWinsSeasons, topLossSeasons, topPointsSeasons, bestDiffSeasons, worstDiffSeasons, topPlayoffStreaks, topPlayoffDroughts };
   }, [filteredMatchups, regularSeasonMatchups, allPlayoffRuns, recordsFilterId]);
 
   // Normalizes League Records (all managers) and Individual Records (one manager) into
@@ -492,6 +504,14 @@ export default function HistoryPage() {
         })),
         topPointsSeasons: leagueRecords.topPointsSeasons.map((s) => ({
           value: Number(s.pf).toFixed(1),
+          detail: `${managerName.get(s.manager_id)} \u00b7 ${s.year}`,
+        })),
+        bestDiffSeasons: leagueRecords.bestDiffSeasons.map((s) => ({
+          value: `${s.diff >= 0 ? "+" : ""}${s.diff.toFixed(1)}`,
+          detail: `${managerName.get(s.manager_id)} \u00b7 ${s.year}`,
+        })),
+        worstDiffSeasons: leagueRecords.worstDiffSeasons.map((s) => ({
+          value: `${s.diff >= 0 ? "+" : ""}${s.diff.toFixed(1)}`,
           detail: `${managerName.get(s.manager_id)} \u00b7 ${s.year}`,
         })),
         topPlayoffStreaks: leagueRecords.topPlayoffStreaks.map((r) => ({
@@ -536,6 +556,14 @@ export default function HistoryPage() {
       })),
       topPointsSeasons: individualRecords.topPointsSeasons.map((s) => ({
         value: Number(s.pf).toFixed(1),
+        detail: `${s.year}`,
+      })),
+      bestDiffSeasons: individualRecords.bestDiffSeasons.map((s) => ({
+        value: `${s.diff >= 0 ? "+" : ""}${s.diff.toFixed(1)}`,
+        detail: `${s.year}`,
+      })),
+      worstDiffSeasons: individualRecords.worstDiffSeasons.map((s) => ({
+        value: `${s.diff >= 0 ? "+" : ""}${s.diff.toFixed(1)}`,
         detail: `${s.year}`,
       })),
       topPlayoffStreaks: individualRecords.topPlayoffStreaks.map((r) => ({
@@ -773,6 +801,8 @@ export default function HistoryPage() {
                 <RecordCard title="Most Wins, Single Season" entries={displayRecords.topWinsSeasons} />
                 <RecordCard title="Most Losses, Single Season" entries={displayRecords.topLossSeasons} />
                 <RecordCard title="Most Points, Single Season" entries={displayRecords.topPointsSeasons} />
+                <RecordCard title="Best Point Differential, Single Season" entries={displayRecords.bestDiffSeasons} />
+                <RecordCard title="Worst Point Differential, Single Season" entries={displayRecords.worstDiffSeasons} />
                 <RecordCard title="Longest Playoffs Made Streak" entries={displayRecords.topPlayoffStreaks} />
                 <RecordCard title="Longest Playoffs Drought" entries={displayRecords.topPlayoffDroughts} />
               </div>
