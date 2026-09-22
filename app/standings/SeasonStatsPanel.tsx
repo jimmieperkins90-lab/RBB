@@ -26,13 +26,11 @@ export type TotalStat = {
   managerName: string;
 };
 
-export type PctStat = {
+export type SeasonPctStat = {
   value: number;
   managerName: string;
   actual: number;
   possible: number;
-  week: number;
-  time_of_season: string;
 };
 
 type AllGameStats = {
@@ -68,13 +66,13 @@ function StatCard({ label, value, detail }: { label: string; value: string; deta
 export default function SeasonStatsPanel({
   allGameStats,
   regularSeasonTotals,
-  highestPct,
-  lowestPct,
+  highestSeasonPct,
+  lowestSeasonPct,
 }: {
   allGameStats: AllGameStats;
   regularSeasonTotals: RegularSeasonTotals;
-  highestPct: PctStat | null;
-  lowestPct: PctStat | null;
+  highestSeasonPct: SeasonPctStat | null;
+  lowestSeasonPct: SeasonPctStat | null;
 }) {
   const { highest, lowest, blowout, closest, longestWinStreak, longestLossStreak } = allGameStats;
   const { mostPF, mostPA, bestMargin, worstMargin } = regularSeasonTotals;
@@ -127,18 +125,18 @@ export default function SeasonStatsPanel({
             detail={longestLossStreak.managers.join(", ")}
           />
         )}
-        {highestPct && (
+        {highestSeasonPct && (
           <StatCard
-            label="Highest % of Max (Single Week)"
-            value={`${highestPct.value.toFixed(1)}%`}
-            detail={`${highestPct.managerName} \u00b7 ${highestPct.actual.toFixed(1)} of ${highestPct.possible.toFixed(1)} \u00b7 ${weekLabel(highestPct.week, highestPct.time_of_season)}`}
+            label="Highest % of Max (Season)"
+            value={`${highestSeasonPct.value.toFixed(1)}%`}
+            detail={`${highestSeasonPct.managerName} \u00b7 ${highestSeasonPct.actual.toFixed(1)} of ${highestSeasonPct.possible.toFixed(1)}`}
           />
         )}
-        {lowestPct && (
+        {lowestSeasonPct && (
           <StatCard
-            label="Lowest % of Max (Single Week)"
-            value={`${lowestPct.value.toFixed(1)}%`}
-            detail={`${lowestPct.managerName} \u00b7 ${lowestPct.actual.toFixed(1)} of ${lowestPct.possible.toFixed(1)} \u00b7 ${weekLabel(lowestPct.week, lowestPct.time_of_season)}`}
+            label="Lowest % of Max (Season)"
+            value={`${lowestSeasonPct.value.toFixed(1)}%`}
+            detail={`${lowestSeasonPct.managerName} \u00b7 ${lowestSeasonPct.actual.toFixed(1)} of ${lowestSeasonPct.possible.toFixed(1)}`}
           />
         )}
         {mostPF && (
