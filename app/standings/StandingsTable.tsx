@@ -326,8 +326,8 @@ export default function StandingsTable({
             <th className="text-center py-2 font-semibold">PF</th>
             <th className="text-center py-2 font-semibold">PA</th>
             <th className="text-center py-2 font-semibold">% Max</th>
-            <th className="text-center py-2 font-semibold">Bench Pts</th>
-            <th className="text-center py-2 font-semibold">Avg Bench</th>
+            <th className="text-center py-2 font-semibold">Missed Pts</th>
+            <th className="text-center py-2 font-semibold">Avg Missed</th>
             <th className="text-center pr-4 py-2 font-semibold">
               {seasonComplete ? "Finish" : "Playoff Odds"}
             </th>
