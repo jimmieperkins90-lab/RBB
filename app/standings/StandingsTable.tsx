@@ -15,6 +15,7 @@ type StandingRow = {
 type PlayoffOddsRow = {
   manager_id: number;
   playoff_pct: number;
+  bye_pct: number;
   as_of_week: number;
 };
 
@@ -203,7 +204,7 @@ export default function StandingsTable({
   const oddsAsOfWeek = playoffOdds[0]?.as_of_week;
   const possibleByManager = new Map(possiblePointsStats.map((p) => [p.manager_id, p]));
 
-  const colCount = (hasDivisions ? 7 : 6) + 3;
+  const colCount = (hasDivisions ? 7 : 6) + 3 + (seasonComplete ? 0 : 1);
 
   const seasonOrder = (t: string) => (t === "Regular" ? 0 : t === "Playoff" ? 1 : 2);
 
@@ -331,6 +332,7 @@ export default function StandingsTable({
             <th className="text-center pr-4 py-2 font-semibold">
               {seasonComplete ? "Finish" : "Playoff Odds"}
             </th>
+            {!seasonComplete && <th className="text-center pr-4 py-2 font-semibold">Bye Odds</th>}
           </tr>
         </thead>
         <tbody>
@@ -363,6 +365,11 @@ export default function StandingsTable({
                     <PlayoffOddsCell odds={oddsByManager.get(t.manager_id)} />
                   )}
                 </td>
+                {!seasonComplete && (
+                  <td className="text-center pr-4 py-2 font-mono font-bold">
+                    <ByeOddsCell odds={oddsByManager.get(t.manager_id)} />
+                  </td>
+                )}
               </tr>
               {openManagerId === t.manager_id && (
                 <tr key={`${t.manager_id}-expanded`} className="bg-cream/60">
@@ -473,6 +480,16 @@ function PlayoffOddsCell({ odds }: { odds: PlayoffOddsRow | undefined }) {
   if (!odds) return <span className="text-gravy/40">{"\u2014"}</span>;
   const pct = Math.round(Number(odds.playoff_pct));
   return <span className={pct >= 50 ? "text-green-700" : "text-burnt"}>{pct}%</span>;
+}
+
+// Top-2-seed (first-round bye) odds — same data source and same "—" fallback as
+// PlayoffOddsCell, just reading bye_pct instead of playoff_pct. No [20,80] guardrail
+// is applied to this one (see project notes: a ~17% baseline for a top-2-of-12 stat
+// doesn't map cleanly onto the playoff-odds clamp logic).
+function ByeOddsCell({ odds }: { odds: PlayoffOddsRow | undefined }) {
+  if (!odds) return <span className="text-gravy/40">{"\u2014"}</span>;
+  const pct = Math.round(Number(odds.bye_pct));
+  return <span className={pct >= 25 ? "text-green-700" : "text-gravy/70"}>{pct}%</span>;
 }
 
 function RosterList({ label, entries }: { label: string; entries: RosterEntry[] }) {
