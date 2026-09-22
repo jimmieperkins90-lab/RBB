@@ -26,6 +26,15 @@ export type TotalStat = {
   managerName: string;
 };
 
+export type PctStat = {
+  value: number;
+  managerName: string;
+  actual: number;
+  possible: number;
+  week: number;
+  time_of_season: string;
+};
+
 type AllGameStats = {
   highest: ScoreStat | null;
   lowest: ScoreStat | null;
@@ -59,9 +68,13 @@ function StatCard({ label, value, detail }: { label: string; value: string; deta
 export default function SeasonStatsPanel({
   allGameStats,
   regularSeasonTotals,
+  highestPct,
+  lowestPct,
 }: {
   allGameStats: AllGameStats;
   regularSeasonTotals: RegularSeasonTotals;
+  highestPct: PctStat | null;
+  lowestPct: PctStat | null;
 }) {
   const { highest, lowest, blowout, closest, longestWinStreak, longestLossStreak } = allGameStats;
   const { mostPF, mostPA, bestMargin, worstMargin } = regularSeasonTotals;
@@ -112,6 +125,20 @@ export default function SeasonStatsPanel({
             label="Longest Losing Streak"
             value={`${longestLossStreak.length} games`}
             detail={longestLossStreak.managers.join(", ")}
+          />
+        )}
+        {highestPct && (
+          <StatCard
+            label="Highest % of Max (Single Week)"
+            value={`${highestPct.value.toFixed(1)}%`}
+            detail={`${highestPct.managerName} \u00b7 ${highestPct.actual.toFixed(1)} of ${highestPct.possible.toFixed(1)} \u00b7 ${weekLabel(highestPct.week, highestPct.time_of_season)}`}
+          />
+        )}
+        {lowestPct && (
+          <StatCard
+            label="Lowest % of Max (Single Week)"
+            value={`${lowestPct.value.toFixed(1)}%`}
+            detail={`${lowestPct.managerName} \u00b7 ${lowestPct.actual.toFixed(1)} of ${lowestPct.possible.toFixed(1)} \u00b7 ${weekLabel(lowestPct.week, lowestPct.time_of_season)}`}
           />
         )}
         {mostPF && (
