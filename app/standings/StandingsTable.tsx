@@ -317,22 +317,23 @@ export default function StandingsTable({
       <div className="pin-dot relative bg-burnt text-cream text-center py-3 rounded-t-md">
         <h3 className="font-display text-2xl tracking-wide">FULL LEAGUE</h3>
       </div>
-      <table className="w-full text-sm">
+      <div className="overflow-hidden overflow-x-auto">
+      <table className="w-full min-w-[860px] text-sm">
         <thead>
           <tr className="font-mono uppercase text-[11px] text-gravy/70 border-b border-biscuit">
-            <th className="text-center py-2 font-semibold w-10">#</th>
-            <th className="text-left py-2 font-semibold">Manager</th>
-            {hasDivisions && <th className="text-left py-2 font-semibold">Division</th>}
-            <th className="text-center py-2 font-semibold">Record</th>
-            <th className="text-center py-2 font-semibold">PF</th>
-            <th className="text-center py-2 font-semibold">PA</th>
-            <th className="text-center py-2 font-semibold">% Max</th>
-            <th className="text-center py-2 font-semibold">Missed Pts</th>
-            <th className="text-center py-2 font-semibold">Avg Missed</th>
-            <th className="text-center pr-4 py-2 font-semibold">
+            <th className="text-center py-2 font-semibold whitespace-nowrap w-10">#</th>
+            <th className="text-left py-2 font-semibold whitespace-nowrap">Manager</th>
+            {hasDivisions && <th className="text-left py-2 font-semibold whitespace-nowrap">Division</th>}
+            <th className="text-center py-2 font-semibold whitespace-nowrap">Record</th>
+            <th className="text-center py-2 font-semibold whitespace-nowrap">PF</th>
+            <th className="text-center py-2 font-semibold whitespace-nowrap">PA</th>
+            <th className="text-center py-2 font-semibold whitespace-nowrap">% Max</th>
+            <th className="text-center py-2 font-semibold whitespace-nowrap">Missed Pts</th>
+            <th className="text-center py-2 font-semibold whitespace-nowrap">Avg Missed</th>
+            <th className="text-center pr-4 py-2 font-semibold whitespace-nowrap">
               {seasonComplete ? "Finish" : "Playoff Odds"}
             </th>
-            {!seasonComplete && <th className="text-center pr-4 py-2 font-semibold">Bye Odds</th>}
+            {!seasonComplete && <th className="text-center pr-4 py-2 font-semibold whitespace-nowrap">Bye Odds</th>}
           </tr>
         </thead>
         <tbody>
@@ -345,20 +346,20 @@ export default function StandingsTable({
                   t.made_finals ? "bg-goldenrod/10" : ""
                 }`}
               >
-                <td className="text-center py-2 font-mono text-gravy/60">{i + 1}</td>
-                <td className="py-2 font-semibold text-coffee">
+                <td className="text-center py-2 font-mono text-gravy/60 whitespace-nowrap">{i + 1}</td>
+                <td className="py-2 font-semibold text-coffee whitespace-nowrap">
                   {t.managerName}
                   {t.made_finals && <span className="ml-2 text-[10px] text-burnt font-mono">FINALS</span>}
                   <span className="ml-2 text-gravy/40 font-mono text-xs">{openManagerId === t.manager_id ? "\u25b2" : "\u25bc"}</span>
                 </td>
                 {hasDivisions && (
-                  <td className="py-2 font-mono text-xs text-gravy/70">{t.division ?? "\u2014"}</td>
+                  <td className="py-2 font-mono text-xs text-gravy/70 whitespace-nowrap">{t.division ?? "\u2014"}</td>
                 )}
-                <td className="text-center py-2 font-mono">{t.record.w}-{t.record.l}</td>
-                <td className="text-center py-2 font-mono">{t.record.pf.toFixed(1)}</td>
-                <td className="text-center py-2 font-mono">{t.record.pa.toFixed(1)}</td>
+                <td className="text-center py-2 font-mono whitespace-nowrap">{t.record.w}-{t.record.l}</td>
+                <td className="text-center py-2 font-mono whitespace-nowrap">{t.record.pf.toFixed(1)}</td>
+                <td className="text-center py-2 font-mono whitespace-nowrap">{t.record.pa.toFixed(1)}</td>
                 <PossiblePointsCells stats={possibleByManager.get(t.manager_id)} />
-                <td className="text-center pr-4 py-2 font-mono font-bold">
+                <td className="text-center pr-4 py-2 font-mono font-bold whitespace-nowrap">
                   {seasonComplete ? (
                     <span className="text-burnt">{t.final_place ?? "\u2014"}</span>
                   ) : (
@@ -366,7 +367,7 @@ export default function StandingsTable({
                   )}
                 </td>
                 {!seasonComplete && (
-                  <td className="text-center pr-4 py-2 font-mono font-bold">
+                  <td className="text-center pr-4 py-2 font-mono font-bold whitespace-nowrap">
                     <ByeOddsCell odds={oddsByManager.get(t.manager_id)} />
                   </td>
                 )}
@@ -442,6 +443,7 @@ export default function StandingsTable({
           ))}
         </tbody>
       </table>
+      </div>
       {!seasonComplete && oddsAsOfWeek != null && (
         <p className="text-center font-mono text-[10px] text-gravy/50 py-2 bg-biscuit/20">
           Playoff odds as of week {oddsAsOfWeek}
@@ -459,17 +461,17 @@ function PossiblePointsCells({ stats }: { stats: PossiblePointsRow | undefined }
   if (!stats) {
     return (
       <>
-        <td className="text-center py-2 font-mono text-gravy/40">{"\u2014"}</td>
-        <td className="text-center py-2 font-mono text-gravy/40">{"\u2014"}</td>
-        <td className="text-center py-2 font-mono text-gravy/40">{"\u2014"}</td>
+        <td className="text-center py-2 font-mono text-gravy/40 whitespace-nowrap">{"\u2014"}</td>
+        <td className="text-center py-2 font-mono text-gravy/40 whitespace-nowrap">{"\u2014"}</td>
+        <td className="text-center py-2 font-mono text-gravy/40 whitespace-nowrap">{"\u2014"}</td>
       </>
     );
   }
   return (
     <>
-      <td className="text-center py-2 font-mono">{stats.pctPlayed.toFixed(1)}%</td>
-      <td className="text-center py-2 font-mono">{stats.totalLeftOnBench.toFixed(1)}</td>
-      <td className="text-center py-2 font-mono">{stats.avgLeftOnBench.toFixed(1)}</td>
+      <td className="text-center py-2 font-mono whitespace-nowrap">{stats.pctPlayed.toFixed(1)}%</td>
+      <td className="text-center py-2 font-mono whitespace-nowrap">{stats.totalLeftOnBench.toFixed(1)}</td>
+      <td className="text-center py-2 font-mono whitespace-nowrap">{stats.avgLeftOnBench.toFixed(1)}</td>
     </>
   );
 }
