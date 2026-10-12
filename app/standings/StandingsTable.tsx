@@ -43,6 +43,19 @@ type RosterEntry = {
   points: number;
 };
 
+type ScoreRank = {
+  weekRank: number;
+  weekCount: number;
+  seasonRank: number;
+  seasonCount: number;
+};
+
+function ordinal(n: number): string {
+  const v = n % 100;
+  const suf = v >= 11 && v <= 13 ? "th" : ["th", "st", "nd", "rd"][n % 10] ?? "th";
+  return `${n}${suf}`;
+}
+
 type WeekEfficiency = {
   actual: number;
   possible: number;
@@ -183,6 +196,7 @@ export default function StandingsTable({
   seasonComplete,
   playoffOdds,
   possiblePointsStats,
+  scoreRanks,
 }: {
   standings: StandingRow[];
   year: number;
@@ -190,6 +204,7 @@ export default function StandingsTable({
   seasonComplete: boolean;
   playoffOdds: PlayoffOddsRow[];
   possiblePointsStats: PossiblePointsRow[];
+  scoreRanks: Record<string, ScoreRank>;
 }) {
   const [openManagerId, setOpenManagerId] = useState<number | null>(null);
   const [gamesByManager, setGamesByManager] = useState<Record<number, GameRow[]>>({});
@@ -408,6 +423,12 @@ export default function StandingsTable({
                                 </span>
                                 <span className="text-gravy/40 text-center">{isGameOpen ? "\u25b2" : "\u25bc"}</span>
                               </div>
+                              <ScoreRankLine
+                                name={t.managerName}
+                                rank={scoreRanks[`${t.manager_id}-${g.week}`]}
+                                oppName={g.opponentName}
+                                oppRank={scoreRanks[`${g.opponent_manager_id}-${g.week}`]}
+                              />
                               {eff && (
                                 <div className="px-3 pt-0.5 pb-1 font-mono text-[10px] text-gravy/50 flex flex-wrap justify-between gap-x-3">
                                   <span>
@@ -449,6 +470,33 @@ export default function StandingsTable({
           Playoff odds as of week {oddsAsOfWeek}
         </p>
       )}
+    </div>
+  );
+}
+
+// Where each side's score ranked that week and across the whole season.
+function ScoreRankLine({
+  name,
+  rank,
+  oppName,
+  oppRank,
+}: {
+  name: string;
+  rank: ScoreRank | undefined;
+  oppName: string;
+  oppRank: ScoreRank | undefined;
+}) {
+  if (!rank && !oppRank) return null;
+  const fmt = (r: ScoreRank | undefined) =>
+    r ? `Wk ${ordinal(r.weekRank)}/${r.weekCount} \u00b7 Yr ${ordinal(r.seasonRank)}/${r.seasonCount}` : "\u2014";
+  return (
+    <div className="px-3 pt-1 font-mono text-[10px] text-gravy/60 flex flex-wrap justify-between gap-x-3">
+      <span>
+        <span className="text-coffee/80 font-semibold">{name}:</span> {fmt(rank)}
+      </span>
+      <span>
+        <span className="text-coffee/80 font-semibold">{oppName}:</span> {fmt(oppRank)}
+      </span>
     </div>
   );
 }
