@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { formatScoreRank, rankKey, ScoreRank } from "@/lib/scoreRanks";
 
 type StandingRow = {
   manager_id: number;
@@ -43,18 +44,11 @@ type RosterEntry = {
   points: number;
 };
 
-type ScoreRank = {
-  weekRank: number;
-  weekCount: number;
-  seasonRank: number;
-  seasonCount: number;
-};
+// One row per game side this season (built server-side in page.tsx): this team's
+// weekly score rank and their opponent's. Feeds the Top-N columns.
+type WeeklyRankRow = { manager_id: number; weekRank: number; oppWeekRank: number };
 
-function ordinal(n: number): string {
-  const v = n % 100;
-  const suf = v >= 11 && v <= 13 ? "th" : ["th", "st", "nd", "rd"][n % 10] ?? "th";
-  return `${n}${suf}`;
-}
+const TOP_N_OPTIONS = [4, 5, 6];
 
 type WeekEfficiency = {
   actual: number;
@@ -197,6 +191,7 @@ export default function StandingsTable({
   playoffOdds,
   possiblePointsStats,
   scoreRanks,
+  weeklyRanks,
 }: {
   standings: StandingRow[];
   year: number;
@@ -205,6 +200,7 @@ export default function StandingsTable({
   playoffOdds: PlayoffOddsRow[];
   possiblePointsStats: PossiblePointsRow[];
   scoreRanks: Record<string, ScoreRank>;
+  weeklyRanks: WeeklyRankRow[];
 }) {
   const [openManagerId, setOpenManagerId] = useState<number | null>(null);
   const [gamesByManager, setGamesByManager] = useState<Record<number, GameRow[]>>({});
@@ -219,7 +215,21 @@ export default function StandingsTable({
   const oddsAsOfWeek = playoffOdds[0]?.as_of_week;
   const possibleByManager = new Map(possiblePointsStats.map((p) => [p.manager_id, p]));
 
-  const colCount = (hasDivisions ? 7 : 6) + 3 + (seasonComplete ? 0 : 1);
+  // Top-N threshold for the "Top N Scores" / "Faced Top N" columns (ties count as top N).
+  const [topN, setTopN] = useState<number>(6);
+  const topNByManager = useMemo(() => {
+    const map = new Map<number, { scored: number; faced: number; games: number }>();
+    weeklyRanks.forEach((r) => {
+      const cur = map.get(r.manager_id) ?? { scored: 0, faced: 0, games: 0 };
+      if (r.weekRank <= topN) cur.scored += 1;
+      if (r.oppWeekRank <= topN) cur.faced += 1;
+      cur.games += 1;
+      map.set(r.manager_id, cur);
+    });
+    return map;
+  }, [weeklyRanks, topN]);
+
+  const colCount = (hasDivisions ? 7 : 6) + 3 + 2 + (seasonComplete ? 0 : 1);
 
   const seasonOrder = (t: string) => (t === "Regular" ? 0 : t === "Playoff" ? 1 : 2);
 
@@ -332,8 +342,22 @@ export default function StandingsTable({
       <div className="pin-dot relative bg-burnt text-cream text-center py-3 rounded-t-md">
         <h3 className="font-display text-2xl tracking-wide">FULL LEAGUE</h3>
       </div>
+      <div className="flex flex-wrap items-center justify-center gap-1.5 px-3 py-1.5 bg-biscuit/30 border-b border-biscuit font-mono text-[10px] text-gravy/70">
+        <span className="uppercase tracking-wide mr-1">Weekly top-N cutoff:</span>
+        {TOP_N_OPTIONS.map((n) => (
+          <button
+            key={n}
+            onClick={() => setTopN(n)}
+            className={`px-2 py-0.5 rounded border font-bold transition-colors ${
+              n === topN ? "bg-gravy text-cream border-gravy" : "bg-transparent text-gravy border-biscuit hover:border-gravy"
+            }`}
+          >
+            Top {n}
+          </button>
+        ))}
+      </div>
       <div className="overflow-hidden overflow-x-auto">
-      <table className="w-full min-w-[860px] text-sm">
+      <table className="w-full min-w-[1000px] text-sm">
         <thead>
           <tr className="font-mono uppercase text-[11px] text-gravy/70 border-b border-biscuit">
             <th className="text-center py-2 font-semibold whitespace-nowrap w-10">#</th>
@@ -345,6 +369,18 @@ export default function StandingsTable({
             <th className="text-center py-2 font-semibold whitespace-nowrap">% Max</th>
             <th className="text-center py-2 font-semibold whitespace-nowrap">Missed Pts</th>
             <th className="text-center py-2 font-semibold whitespace-nowrap">Avg Missed</th>
+            <th
+              className="text-center py-2 font-semibold whitespace-nowrap"
+              title={`Weeks this team's score ranked in the top ${topN} of all scores that week`}
+            >
+              Top {topN} Scores
+            </th>
+            <th
+              className="text-center py-2 font-semibold whitespace-nowrap"
+              title={`Weeks this team's opponent's score ranked in the top ${topN} of all scores that week`}
+            >
+              Faced Top {topN}
+            </th>
             <th className="text-center pr-4 py-2 font-semibold whitespace-nowrap">
               {seasonComplete ? "Finish" : "Playoff Odds"}
             </th>
@@ -374,6 +410,7 @@ export default function StandingsTable({
                 <td className="text-center py-2 font-mono whitespace-nowrap">{t.record.pf.toFixed(1)}</td>
                 <td className="text-center py-2 font-mono whitespace-nowrap">{t.record.pa.toFixed(1)}</td>
                 <PossiblePointsCells stats={possibleByManager.get(t.manager_id)} />
+                <TopNCells stats={topNByManager.get(t.manager_id)} />
                 <td className="text-center pr-4 py-2 font-mono font-bold whitespace-nowrap">
                   {seasonComplete ? (
                     <span className="text-burnt">{t.final_place ?? "\u2014"}</span>
@@ -425,9 +462,9 @@ export default function StandingsTable({
                               </div>
                               <ScoreRankLine
                                 name={t.managerName}
-                                rank={scoreRanks[`${t.manager_id}-${g.week}`]}
+                                rank={scoreRanks[rankKey(year, g.week, t.manager_id)]}
                                 oppName={g.opponentName}
-                                oppRank={scoreRanks[`${g.opponent_manager_id}-${g.week}`]}
+                                oppRank={scoreRanks[rankKey(year, g.week, g.opponent_manager_id)]}
                               />
                               {eff && (
                                 <div className="px-3 pt-0.5 pb-1 font-mono text-[10px] text-gravy/50 flex flex-wrap justify-between gap-x-3">
@@ -474,7 +511,7 @@ export default function StandingsTable({
   );
 }
 
-// Where each side's score ranked that week and across the whole season.
+// Where each side's score ranked that week, that season, and in all of league history.
 function ScoreRankLine({
   name,
   rank,
@@ -487,8 +524,7 @@ function ScoreRankLine({
   oppRank: ScoreRank | undefined;
 }) {
   if (!rank && !oppRank) return null;
-  const fmt = (r: ScoreRank | undefined) =>
-    r ? `Wk ${ordinal(r.weekRank)}/${r.weekCount} \u00b7 Yr ${ordinal(r.seasonRank)}/${r.seasonCount}` : "\u2014";
+  const fmt = (r: ScoreRank | undefined) => (r ? formatScoreRank(r) : "\u2014");
   return (
     <div className="px-3 pt-1 font-mono text-[10px] text-gravy/60 flex flex-wrap justify-between gap-x-3">
       <span>
@@ -498,6 +534,31 @@ function ScoreRankLine({
         <span className="text-coffee/80 font-semibold">{oppName}:</span> {fmt(oppRank)}
       </span>
     </div>
+  );
+}
+
+// Count of weeks this team posted a top-N weekly score, and weeks their opponent
+// did, shown as "count/games played". "—" before any games are played.
+function TopNCells({ stats }: { stats: { scored: number; faced: number; games: number } | undefined }) {
+  if (!stats) {
+    return (
+      <>
+        <td className="text-center py-2 font-mono text-gravy/40 whitespace-nowrap">{"\u2014"}</td>
+        <td className="text-center py-2 font-mono text-gravy/40 whitespace-nowrap">{"\u2014"}</td>
+      </>
+    );
+  }
+  return (
+    <>
+      <td className="text-center py-2 font-mono whitespace-nowrap">
+        {stats.scored}
+        <span className="text-gravy/40">/{stats.games}</span>
+      </td>
+      <td className="text-center py-2 font-mono whitespace-nowrap">
+        {stats.faced}
+        <span className="text-gravy/40">/{stats.games}</span>
+      </td>
+    </>
   );
 }
 

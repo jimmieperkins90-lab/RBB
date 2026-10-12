@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import HeadToHead from "./HeadToHead";
+import { computeScoreRanks } from "@/lib/scoreRanks";
 
 type Season = { year: number; num_teams: number };
 type Manager = { id: number; name: string };
@@ -134,6 +135,10 @@ export default function HistoryPage() {
   }, []);
 
   const yearToTeams = useMemo(() => new Map(seasons.map((s) => [s.year, s.num_teams])), [seasons]);
+
+  // Week / season / all-time rank of every score ever posted. Always measured against
+  // the full, unfiltered history so a game's ranks don't shift with the page filters.
+  const scoreRanks = useMemo(() => computeScoreRanks(matchups), [matchups]);
 
   const filteredMatchups = useMemo(() => {
     return matchups.filter((r) => {
@@ -815,7 +820,7 @@ export default function HistoryPage() {
               <h2 className="font-display text-4xl text-gravy chalk-shadow">HEAD-TO-HEAD</h2>
               <div className="menu-divider w-40 mx-auto mt-3" />
             </div>
-            <HeadToHead managers={managers} rows={filteredMatchups} />
+            <HeadToHead managers={managers} rows={filteredMatchups} scoreRanks={scoreRanks} />
           </section>
         </>
       )}

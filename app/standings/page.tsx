@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import StandingsTable from "./StandingsTable";
+import { computeScoreRanks, rankKey, ScoreRank } from "@/lib/scoreRanks";
 import SeasonStatsPanel, {
   ScoreStat,
   MarginStat,
@@ -343,32 +344,38 @@ async function getSeasonGames(year: number): Promise<SeasonGame[]> {
   }));
 }
 
-// Score ranks for every played game this season, keyed `${manager_id}-${week}`
-// (a manager plays at most once per week). Week rank = where the score sits
-// among every score posted that week; year rank = among every score posted all
-// season (all games incl. playoffs/TB). Ties share a rank (1, 2, 2, 4).
-type ScoreRank = { weekRank: number; weekCount: number; seasonRank: number; seasonCount: number };
+// Every played score in league history (all seasons, all game types). Ranks are
+// measured against this, so each game gets its week, season and all-time rank.
+async function getAllScores() {
+  return fetchAllRows<{ year: number; week: number; manager_id: number; score: number }>((from, to) =>
+    supabase
+      .from("matchups")
+      .select("year, week, manager_id, score")
+      .eq("game_played", true)
+      .order("id", { ascending: true })
+      .range(from, to)
+  );
+}
 
-function computeScoreRanks(games: SeasonGame[]): Record<string, ScoreRank> {
-  const seasonScores = games.map((g) => g.score);
-  const byWeek = new Map<number, number[]>();
-  games.forEach((g) => {
-    const list = byWeek.get(g.week) ?? [];
-    list.push(g.score);
-    byWeek.set(g.week, list);
+// One row per game side this season: that team's weekly score rank and their
+// opponent's. Drives the Top-N columns (scored a top-N score that week / faced a
+// top-N score that week), with N chosen client-side in StandingsTable.
+type WeeklyRankRow = { manager_id: number; weekRank: number; oppWeekRank: number };
+
+// Ranks are computed against all of league history, then only this season's games
+// are passed to the client (keyed rankKey(year, week, manager_id)).
+function buildSeasonRanks(year: number, seasonGames: SeasonGame[], allRanks: Record<string, ScoreRank>) {
+  const scoreRanks: Record<string, ScoreRank> = {};
+  const weeklyRanks: WeeklyRankRow[] = [];
+  seasonGames.forEach((g) => {
+    const mine = allRanks[rankKey(year, g.week, g.manager_id)];
+    const theirs = allRanks[rankKey(year, g.week, g.opponent_manager_id)];
+    if (mine) scoreRanks[rankKey(year, g.week, g.manager_id)] = mine;
+    if (mine && theirs) {
+      weeklyRanks.push({ manager_id: g.manager_id, weekRank: mine.weekRank, oppWeekRank: theirs.weekRank });
+    }
   });
-  const rankIn = (scores: number[], s: number) => scores.filter((x) => x > s).length + 1;
-  const out: Record<string, ScoreRank> = {};
-  games.forEach((g) => {
-    const weekScores = byWeek.get(g.week) ?? [];
-    out[`${g.manager_id}-${g.week}`] = {
-      weekRank: rankIn(weekScores, g.score),
-      weekCount: weekScores.length,
-      seasonRank: rankIn(seasonScores, g.score),
-      seasonCount: seasonScores.length,
-    };
-  });
-  return out;
+  return { scoreRanks, weeklyRanks };
 }
 
 // Highest/lowest single-team score, biggest blowout, closest game, and longest
@@ -506,18 +513,19 @@ export default async function StandingsPage({
   const latestYear = seasons[0]?.year ?? 2025;
   const year = searchParams.year ? parseInt(searchParams.year, 10) : latestYear;
 
-  const [{ rows: standings, seasonComplete }, playoffOdds, seasonGames, possiblePoints] = await Promise.all([
+  const [{ rows: standings, seasonComplete }, playoffOdds, seasonGames, possiblePoints, allScores] = await Promise.all([
     getStandings(year),
     getPlayoffOdds(year),
     getSeasonGames(year),
     getPossiblePointsStats(year),
+    getAllScores(),
   ]);
   const { results: possiblePointsStats, highestSeasonPct, lowestSeasonPct } = possiblePoints;
 
   const hasDivisions = standings.some((r) => r.division);
   const allGameStats = computeAllGameStats(seasonGames);
   const regularSeasonTotals = computeRegularSeasonTotals(seasonGames);
-  const scoreRanks = computeScoreRanks(seasonGames);
+  const { scoreRanks, weeklyRanks } = buildSeasonRanks(year, seasonGames, computeScoreRanks(allScores));
 
   return (
     <div>
@@ -581,6 +589,7 @@ export default async function StandingsPage({
             playoffOdds={playoffOdds}
             possiblePointsStats={possiblePointsStats}
             scoreRanks={scoreRanks}
+            weeklyRanks={weeklyRanks}
           />
         )}
       </section>

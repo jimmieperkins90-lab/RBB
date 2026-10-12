@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { formatScoreRank, rankKey, ScoreRank } from "@/lib/scoreRanks";
 
 type Manager = { id: number; name: string };
 type Matchup = {
@@ -141,7 +142,41 @@ function GameLineupsPanel({
   );
 }
 
-export default function HeadToHead({ managers, rows }: { managers: Manager[]; rows: Matchup[] }) {
+// Where each side's score ranked that week, that season, and in all of league history.
+function GameRankLine({
+  meName,
+  meRank,
+  oppName,
+  oppRank,
+}: {
+  meName?: string;
+  meRank: ScoreRank | undefined;
+  oppName?: string;
+  oppRank: ScoreRank | undefined;
+}) {
+  if (!meRank && !oppRank) return null;
+  const fmt = (r: ScoreRank | undefined) => (r ? formatScoreRank(r) : "\u2014");
+  return (
+    <div className="px-4 pb-2 -mt-1 font-mono text-[10px] text-gravy/60 flex flex-wrap justify-between gap-x-3 gap-y-0.5">
+      <span>
+        <span className="text-coffee/80 font-semibold">{meName ?? "\u2014"}:</span> {fmt(meRank)}
+      </span>
+      <span>
+        <span className="text-coffee/80 font-semibold">{oppName ?? "\u2014"}:</span> {fmt(oppRank)}
+      </span>
+    </div>
+  );
+}
+
+export default function HeadToHead({
+  managers,
+  rows,
+  scoreRanks,
+}: {
+  managers: Manager[];
+  rows: Matchup[];
+  scoreRanks: Record<string, ScoreRank>;
+}) {
   const [level1, setLevel1] = useState<number | null>(null);
   const [level2, setLevel2] = useState<number | null>(null);
   // Composite "year-week" key so two games in the same week number across
@@ -248,6 +283,12 @@ export default function HeadToHead({ managers, rows }: { managers: Manager[]; ro
                       </span>
                     </div>
                   </button>
+                  <GameRankLine
+                    meName={meName}
+                    meRank={scoreRanks[rankKey(g.year, g.week, level1)]}
+                    oppName={oppName}
+                    oppRank={scoreRanks[rankKey(g.year, g.week, level2)]}
+                  />
                   {isOpen && (
                     <GameLineupsPanel
                       year={g.year}

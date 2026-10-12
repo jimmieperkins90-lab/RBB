@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { formatScoreRank, ScoreRank } from "@/lib/scoreRanks";
 
 const POS_ORDER: Record<string, number> = {
   QB: 0,
@@ -142,14 +143,6 @@ function MiniPlayerList({ rows, muted = false }: { rows: LineupRow[]; muted?: bo
   );
 }
 
-type ScoreRank = { weekRank: number; weekCount: number; seasonRank: number; seasonCount: number };
-
-function ordinal(n: number): string {
-  const v = n % 100;
-  const suf = v >= 11 && v <= 13 ? "th" : ["th", "st", "nd", "rd"][n % 10] ?? "th";
-  return `${n}${suf}`;
-}
-
 function ScoreRow({
   name,
   record,
@@ -173,7 +166,7 @@ function ScoreRow({
         {winner && <span className="ml-2 text-[10px] text-burnt font-mono">W</span>}
         {rank && (
           <span className="block font-mono text-[10px] font-normal text-gravy/50 mt-0.5">
-            Wk {ordinal(rank.weekRank)}/{rank.weekCount} &middot; Yr {ordinal(rank.seasonRank)}/{rank.seasonCount}
+            {formatScoreRank(rank)}
           </span>
         )}
       </span>
