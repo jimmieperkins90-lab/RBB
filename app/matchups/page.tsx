@@ -19,20 +19,49 @@ async function getWeeks(year: number) {
   return { weeks, hasPlayoffWeek };
 }
 
+type ScoreRank = { weekRank: number; weekCount: number; seasonRank: number; seasonCount: number };
+
+// Season records plus score ranks for every played game this season, keyed
+// `${manager_id}-${week}`. Week rank = among every score posted that week; year
+// rank = among every score posted all season (all games incl. playoffs/TB).
+// Ties share a rank (1, 2, 2, 4).
 async function getSeasonRecords(year: number) {
   const { data } = await supabase
     .from("matchups")
-    .select("manager_id, win, game_played")
+    .select("manager_id, week, score, win, game_played")
     .eq("year", year)
     .eq("game_played", true);
+  const rows = (data ?? []) as any[];
+
   const rec = new Map<number, { w: number; l: number }>();
-  (data ?? []).forEach((r: any) => {
+  rows.forEach((r) => {
     const cur = rec.get(r.manager_id) ?? { w: 0, l: 0 };
     if (r.win) cur.w += 1;
     else cur.l += 1;
     rec.set(r.manager_id, cur);
   });
-  return rec;
+
+  const seasonScores = rows.map((r) => Number(r.score ?? 0));
+  const byWeek = new Map<number, number[]>();
+  rows.forEach((r) => {
+    const list = byWeek.get(r.week) ?? [];
+    list.push(Number(r.score ?? 0));
+    byWeek.set(r.week, list);
+  });
+  const rankIn = (scores: number[], s: number) => scores.filter((x) => x > s).length + 1;
+  const ranks = new Map<string, ScoreRank>();
+  rows.forEach((r) => {
+    const s = Number(r.score ?? 0);
+    const weekScores = byWeek.get(r.week) ?? [];
+    ranks.set(`${r.manager_id}-${r.week}`, {
+      weekRank: rankIn(weekScores, s),
+      weekCount: weekScores.length,
+      seasonRank: rankIn(seasonScores, s),
+      seasonCount: seasonScores.length,
+    });
+  });
+
+  return { rec, ranks };
 }
 
 async function getMatchups(year: number, week: number) {
@@ -105,7 +134,10 @@ export default async function MatchupsPage({
   const latestWeek = weeks[weeks.length - 1] ?? 1;
   const week = searchParams.week ? parseInt(searchParams.week, 10) : latestWeek;
 
-  const [games, seasonRecords] = await Promise.all([getMatchups(year, week), getSeasonRecords(year)]);
+  const [games, { rec: seasonRecords, ranks: scoreRanks }] = await Promise.all([
+    getMatchups(year, week),
+    getSeasonRecords(year),
+  ]);
 
   const gamesWithRecords = games.map((g) => {
     const homeRec = seasonRecords.get(g.homeId);
@@ -114,6 +146,8 @@ export default async function MatchupsPage({
       ...g,
       homeRecord: homeRec ? `${homeRec.w}-${homeRec.l}` : null,
       awayRecord: awayRec ? `${awayRec.w}-${awayRec.l}` : null,
+      homeRank: scoreRanks.get(`${g.homeId}-${week}`) ?? null,
+      awayRank: scoreRanks.get(`${g.awayId}-${week}`) ?? null,
     };
   });
 
