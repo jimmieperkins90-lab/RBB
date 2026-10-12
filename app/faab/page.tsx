@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/supabase";
 import FaabTable from "./FaabTable";
 import AllTimeStats from "./AllTimeStats";
+import { fmtNum } from "@/lib/format";
 
 export const revalidate = 300;
 
@@ -202,7 +203,7 @@ export default async function FaabPage({
               >
                 <span className="font-semibold text-coffee">{s.name}</span>
                 <span className="font-mono text-sm text-right">
-                  <span className="font-bold text-burnt">${s.total}</span>
+                  <span className="font-bold text-burnt">${fmtNum(s.total, 0)}</span>
                   <span className="text-gravy/50 ml-1.5">/ {s.count} {s.count === 1 ? "claim" : "claims"}</span>
                 </span>
               </div>

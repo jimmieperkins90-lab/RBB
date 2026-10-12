@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { formatScoreRank, rankKey, ScoreRank } from "@/lib/scoreRanks";
+import { fmtNum } from "@/lib/format";
 
 type StandingRow = {
   manager_id: number;
@@ -407,8 +408,8 @@ export default function StandingsTable({
                   <td className="py-2 font-mono text-xs text-gravy/70 whitespace-nowrap">{t.division ?? "\u2014"}</td>
                 )}
                 <td className="text-center py-2 font-mono whitespace-nowrap">{t.record.w}-{t.record.l}</td>
-                <td className="text-center py-2 font-mono whitespace-nowrap">{t.record.pf.toFixed(1)}</td>
-                <td className="text-center py-2 font-mono whitespace-nowrap">{t.record.pa.toFixed(1)}</td>
+                <td className="text-center py-2 font-mono whitespace-nowrap">{fmtNum(t.record.pf, 1)}</td>
+                <td className="text-center py-2 font-mono whitespace-nowrap">{fmtNum(t.record.pa, 1)}</td>
                 <PossiblePointsCells stats={possibleByManager.get(t.manager_id)} />
                 <TopNCells stats={topNByManager.get(t.manager_id)} />
                 <td className="text-center pr-4 py-2 font-mono font-bold whitespace-nowrap">
@@ -454,9 +455,9 @@ export default function StandingsTable({
                                 </span>
                                 <span className="text-right whitespace-nowrap">
                                   <span className={g.win ? "text-green-700 font-bold" : "text-burnt font-bold"}>
-                                    {g.score.toFixed(1)}
+                                    {fmtNum(g.score, 1)}
                                   </span>
-                                  <span className="text-gravy/50"> - {g.oppScore.toFixed(1)}</span>
+                                  <span className="text-gravy/50"> - {fmtNum(g.oppScore, 1)}</span>
                                 </span>
                                 <span className="text-gravy/40 text-center">{isGameOpen ? "\u25b2" : "\u25bc"}</span>
                               </div>
@@ -469,10 +470,10 @@ export default function StandingsTable({
                               {eff && (
                                 <div className="px-3 pt-0.5 pb-1 font-mono text-[10px] text-gravy/50 flex flex-wrap justify-between gap-x-3">
                                   <span>
-                                    {eff.actual.toFixed(1)} of {eff.possible.toFixed(1)} possible pts &mdash; {eff.pct.toFixed(1)}%
+                                    {fmtNum(eff.actual, 1)} of {fmtNum(eff.possible, 1)} possible pts &mdash; {fmtNum(eff.pct, 1)}%
                                   </span>
                                   <span>
-                                    Season: {eff.cumActual.toFixed(1)} / {eff.cumPossible.toFixed(1)} &mdash; {eff.cumPct.toFixed(1)}%
+                                    Season: {fmtNum(eff.cumActual, 1)} / {fmtNum(eff.cumPossible, 1)} &mdash; {fmtNum(eff.cumPct, 1)}%
                                   </span>
                                 </div>
                               )}
@@ -578,9 +579,9 @@ function PossiblePointsCells({ stats }: { stats: PossiblePointsRow | undefined }
   }
   return (
     <>
-      <td className="text-center py-2 font-mono whitespace-nowrap">{stats.pctPlayed.toFixed(1)}%</td>
-      <td className="text-center py-2 font-mono whitespace-nowrap">{stats.totalLeftOnBench.toFixed(1)}</td>
-      <td className="text-center py-2 font-mono whitespace-nowrap">{stats.avgLeftOnBench.toFixed(1)}</td>
+      <td className="text-center py-2 font-mono whitespace-nowrap">{fmtNum(stats.pctPlayed, 1)}%</td>
+      <td className="text-center py-2 font-mono whitespace-nowrap">{fmtNum(stats.totalLeftOnBench, 1)}</td>
+      <td className="text-center py-2 font-mono whitespace-nowrap">{fmtNum(stats.avgLeftOnBench, 1)}</td>
     </>
   );
 }
@@ -614,7 +615,7 @@ function RosterList({ label, entries }: { label: string; entries: RosterEntry[] 
           <div key={i} className="grid grid-cols-[36px_1fr_44px] items-center gap-1 font-mono text-xs">
             <span className="text-gravy/50">{p.lineup_pos}</span>
             <span className="text-coffee truncate">{p.player_name}</span>
-            <span className="text-burnt font-semibold text-right">{Number(p.points).toFixed(1)}</span>
+            <span className="text-burnt font-semibold text-right">{fmtNum(Number(p.points), 1)}</span>
           </div>
         ))}
         {bench.length > 0 && (
@@ -624,7 +625,7 @@ function RosterList({ label, entries }: { label: string; entries: RosterEntry[] 
               <div key={i} className="grid grid-cols-[36px_1fr_44px] items-center gap-1 font-mono text-xs opacity-60">
                 <span className="text-gravy/50">{p.lineup_pos}</span>
                 <span className="text-coffee truncate">{p.player_name}</span>
-                <span className="text-burnt font-semibold text-right">{Number(p.points).toFixed(1)}</span>
+                <span className="text-burnt font-semibold text-right">{fmtNum(Number(p.points), 1)}</span>
               </div>
             ))}
           </>

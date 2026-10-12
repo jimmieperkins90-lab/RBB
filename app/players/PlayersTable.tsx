@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { PlayerSummary } from "./page";
+import { fmtNum } from "@/lib/format";
 
 type SortKey = "name" | "position" | "timesStarted" | "careerPPG" | "bestGame";
 
@@ -295,9 +296,9 @@ function PlayerRow({
         <td className="px-3 py-2.5 font-semibold text-coffee">{player.name}</td>
         <td className="px-3 py-2.5 font-mono text-xs text-gravy/60">{player.position}</td>
         <td className="px-3 py-2.5 font-mono text-sm text-gravy/80">{stats.timesStarted}</td>
-        <td className="px-3 py-2.5 font-mono text-sm font-bold text-gravy">{stats.careerPPG.toFixed(1)}</td>
+        <td className="px-3 py-2.5 font-mono text-sm font-bold text-gravy">{fmtNum(stats.careerPPG, 1)}</td>
         <td className="px-3 py-2.5 font-mono text-sm font-bold text-burnt">
-          {stats.bestGame ? stats.bestGame.points.toFixed(1) : "\u2014"}
+          {stats.bestGame ? fmtNum(stats.bestGame.points, 1) : "\u2014"}
         </td>
       </tr>
       {isExpanded && (
@@ -337,7 +338,7 @@ function PlayerDetail({ player }: { player: PlayerSummary }) {
               >
                 <span className="font-semibold text-sm text-coffee">{mb.managerName}</span>
                 <span className="font-mono text-xs text-gravy/70 flex items-center gap-2">
-                  {mb.timesStarted}x &middot; {mb.ppg.toFixed(1)} ppg
+                  {mb.timesStarted}x &middot; {fmtNum(mb.ppg, 1)} ppg
                   <span className="text-gravy/40">{isOpen ? "\u2212" : "+"}</span>
                 </span>
               </button>
@@ -345,7 +346,7 @@ function PlayerDetail({ player }: { player: PlayerSummary }) {
                 <div className="px-3 pb-2.5 pt-2 border-t border-biscuit/60 flex flex-wrap gap-1.5">
                   {mb.games.map((g, i) => (
                     <span key={i} className="font-mono text-[10px] text-gravy/60 bg-biscuit/40 rounded px-1.5 py-0.5">
-                      {g.year} Wk{g.week}: {g.points.toFixed(1)}
+                      {g.year} Wk{g.week}: {fmtNum(g.points, 1)}
                     </span>
                   ))}
                 </div>

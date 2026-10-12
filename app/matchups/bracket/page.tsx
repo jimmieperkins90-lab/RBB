@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { fmtNum } from "@/lib/format";
 
 export const revalidate = 300;
 
@@ -155,10 +156,10 @@ function BracketRow({
       </span>
       <div className="text-right">
         <div className={`font-mono text-sm font-bold ${winner ? "text-green-700" : "text-gravy/50"}`}>
-          {score != null ? Number(score).toFixed(1) : "\u2014"}
+          {score != null ? fmtNum(Number(score), 1) : "\u2014"}
         </div>
         {proj != null && (
-          <div className="font-mono text-[10px] text-gravy/40">proj {Number(proj).toFixed(1)}</div>
+          <div className="font-mono text-[10px] text-gravy/40">proj {fmtNum(Number(proj), 1)}</div>
         )}
       </div>
     </div>

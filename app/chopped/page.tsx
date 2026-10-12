@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { fmtNum } from "@/lib/format";
 
 export const revalidate = 300;
 
@@ -16,6 +17,9 @@ type ChopEvent = {
   name: string;
   score: number;
   tieBroken: boolean;
+  // The lowest score among everyone who survived that week — the closest call.
+  nextName: string | null;
+  nextScore: number | null;
 };
 
 async function getChoppedData(year: number) {
@@ -84,12 +88,24 @@ async function getChoppedData(year: number) {
     }
 
     const choppedId = candidates[0];
+
+    // Next closest: the lowest score among the managers who survived this week.
+    // On a tie-broken chop this can equal the chopped score (same points, saved by
+    // a higher season total).
+    let nextId: number | null = null;
+    for (const id of Array.from(remaining)) {
+      if (id === choppedId) continue;
+      if (nextId === null || scoresThisWeek.get(id)! < scoresThisWeek.get(nextId)!) nextId = id;
+    }
+
     events.push({
       week,
       managerId: choppedId,
       name: managerNames.get(choppedId) ?? "Unknown",
       score: minScore,
       tieBroken,
+      nextName: nextId != null ? managerNames.get(nextId) ?? "Unknown" : null,
+      nextScore: nextId != null ? scoresThisWeek.get(nextId)! : null,
     });
     remaining.delete(choppedId);
   }
@@ -99,7 +115,8 @@ async function getChoppedData(year: number) {
     .sort((a, b) => a.localeCompare(b));
 
   return {
-    events,
+    // Most recent chop first (week 5 above week 4).
+    events: [...events].sort((a, b) => b.week - a.week),
     survivors,
     poolStarted: maxWeek >= CHOP_START_WEEK,
     winner: remaining.size === 1 ? managerNames.get(Array.from(remaining)[0]) : null,
@@ -166,21 +183,32 @@ export default async function ChoppedPage({
               The Chopping Block
             </h3>
             <div className="space-y-3">
-              {events.map((e, i) => (
+              {events.map((e) => (
                 <div
-                  key={i}
-                  className="flex items-center justify-between bg-plate border-2 border-coffee rounded-lg shadow-[4px_4px_0_#2B1B12] px-4 py-3"
+                  key={e.week}
+                  className="bg-plate border-2 border-coffee rounded-lg shadow-[4px_4px_0_#2B1B12] px-4 py-3"
                 >
-                  <div className="flex items-center gap-3">
-                    <span className="font-mono text-xs text-gravy/50 uppercase w-16">Week {e.week}</span>
-                    <span className="font-display text-lg text-gravy">{e.name}</span>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="font-mono text-xs text-gravy/50 uppercase w-16 flex-shrink-0">Week {e.week}</span>
+                      <span className="font-display text-lg text-gravy truncate">{e.name}</span>
+                    </div>
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <span className="font-mono text-sm text-gravy/60">{fmtNum(e.score, 1)} pts</span>
+                      <span className="px-3 py-1 rounded-full bg-burnt text-cream font-mono text-xs font-bold uppercase">
+                        🔪 Chopped
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="font-mono text-sm text-gravy/60">{e.score.toFixed(1)} pts</span>
-                    <span className="px-3 py-1 rounded-full bg-burnt text-cream font-mono text-xs font-bold uppercase">
-                      🔪 Chopped
-                    </span>
-                  </div>
+                  {e.nextName != null && e.nextScore != null && (
+                    <div className="mt-1.5 pl-[76px] font-mono text-[11px] text-gravy/60">
+                      Next closest: <span className="font-semibold text-coffee/80">{e.nextName}</span>{" "}
+                      {fmtNum(e.nextScore, 1)} pts{" "}
+                      <span className="text-gravy/40">
+                        ({Math.abs(e.nextScore - e.score) < 0.005 ? "tied" : `survived by ${fmtNum(e.nextScore - e.score, 2)}`})
+                      </span>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

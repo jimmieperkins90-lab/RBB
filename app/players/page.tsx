@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import PlayersTable from "./PlayersTable";
+import { fmtNum } from "@/lib/format";
 
 export const revalidate = 300;
 
@@ -226,7 +227,7 @@ export default async function PlayersPage() {
                         </div>
                       </td>
                       <td className="px-3 py-2 text-right font-mono text-sm font-bold text-burnt align-top">
-                        {r.points.toFixed(1)}
+                        {fmtNum(r.points, 1)}
                       </td>
                     </tr>
                   ))}

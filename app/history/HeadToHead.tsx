@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { formatScoreRank, rankKey, ScoreRank } from "@/lib/scoreRanks";
+import { fmtNum } from "@/lib/format";
 
 type Manager = { id: number; name: string };
 type Matchup = {
@@ -80,8 +81,8 @@ function MiniPlayerTable({ rows }: { rows: LineupRow[] }) {
               )}
             </div>
             <div className="text-right flex-shrink-0">
-              <span className={`font-mono text-xs font-bold ${beat ? "text-green-700" : "text-burnt"}`}>{pts.toFixed(1)}</span>
-              <span className="font-mono text-[9px] text-gravy/40 ml-1">/{proj.toFixed(1)}</span>
+              <span className={`font-mono text-xs font-bold ${beat ? "text-green-700" : "text-burnt"}`}>{fmtNum(pts, 1)}</span>
+              <span className="font-mono text-[9px] text-gravy/40 ml-1">/{fmtNum(proj, 1)}</span>
             </div>
           </div>
         );
@@ -272,10 +273,10 @@ export default function HeadToHead({
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="font-mono text-sm font-bold">
-                        <span className={g.win ? "text-green-700" : "text-burnt"}>{Number(g.score).toFixed(1)}</span>
+                        <span className={g.win ? "text-green-700" : "text-burnt"}>{fmtNum(Number(g.score), 1)}</span>
                         <span className="text-gravy/40"> - </span>
                         <span className={!g.win ? "text-green-700" : "text-burnt"}>
-                          {g.oppScore != null ? Number(g.oppScore).toFixed(1) : "\u2014"}
+                          {g.oppScore != null ? fmtNum(Number(g.oppScore), 1) : "\u2014"}
                         </span>
                       </div>
                       <span className={`font-mono text-[10px] text-gravy/40 transition-transform ${isOpen ? "rotate-180" : ""}`}>
@@ -335,7 +336,7 @@ export default function HeadToHead({
                 >
                   <td className="pl-4 py-2 font-semibold text-coffee">{o.name}</td>
                   <td className="text-center py-2 font-mono">{o.w}-{o.l}</td>
-                  <td className="text-center pr-4 py-2 font-mono">{o.pf.toFixed(1)}</td>
+                  <td className="text-center pr-4 py-2 font-mono">{fmtNum(o.pf, 1)}</td>
                 </tr>
               ))}
               {vsOpponents.length === 0 && (
@@ -371,7 +372,7 @@ export default function HeadToHead({
             >
               <td className="pl-4 py-2 font-semibold text-coffee">{r.name}</td>
               <td className="text-center py-2 font-mono">{r.w}-{r.l}</td>
-              <td className="text-center pr-4 py-2 font-mono">{r.pf.toFixed(1)}</td>
+              <td className="text-center pr-4 py-2 font-mono">{fmtNum(r.pf, 1)}</td>
             </tr>
           ))}
           {overall.length === 0 && (

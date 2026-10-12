@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { fmtNum } from "@/lib/format";
 
 const POS_ORDER: Record<string, number> = {
   QB: 0,
@@ -597,7 +598,7 @@ function AllManagersSeasonGrid({
                         <div className="px-3 py-1.5 bg-burnt/90 text-cream flex items-center justify-between">
                           <span className="font-mono text-[10px] font-bold uppercase">Total</span>
                           <span className="font-mono text-xs font-bold">
-                            {weekData.total.toFixed(1)} <span className="text-cream/60">/ {weekData.totalProj.toFixed(1)}</span>
+                            {fmtNum(weekData.total, 1)} <span className="text-cream/60">/ {fmtNum(weekData.totalProj, 1)}</span>
                           </span>
                         </div>
                         <PlayerTable rows={weekData.starters} />
@@ -632,7 +633,7 @@ function SeasonCard({ name, weeks }: { name?: string; weeks: WeekRoster[] | null
             <div className="px-4 py-2 bg-burnt text-cream flex items-center justify-between">
               <span className="font-display text-base tracking-wide">WEEK {w.week}</span>
               <span className="font-mono text-sm font-bold">
-                {w.total.toFixed(1)} <span className="text-cream/60">/ proj {w.totalProj.toFixed(1)}</span>
+                {fmtNum(w.total, 1)} <span className="text-cream/60">/ proj {fmtNum(w.totalProj, 1)}</span>
               </span>
             </div>
             <PlayerTable rows={w.starters} />
@@ -659,7 +660,7 @@ function RosterCard({ name, roster }: { name?: string; roster: Roster | null }) 
           <div className="px-4 py-3 bg-burnt text-cream flex items-center justify-between">
             <span className="font-display text-lg tracking-wide">STARTERS</span>
             <span className="font-mono text-sm font-bold">
-              {roster.total.toFixed(1)} <span className="text-cream/60">/ proj {roster.totalProj.toFixed(1)}</span>
+              {fmtNum(roster.total, 1)} <span className="text-cream/60">/ proj {fmtNum(roster.totalProj, 1)}</span>
             </span>
           </div>
           <PlayerTable rows={roster.starters} />
@@ -704,9 +705,9 @@ function PlayerTable({ rows, muted = false }: { rows: LineupRow[]; muted?: boole
             </div>
             <div className="text-right flex-shrink-0">
               <span className={`font-mono text-sm font-bold ${beat ? "text-green-700" : "text-burnt"}`}>
-                {pts.toFixed(1)}
+                {fmtNum(pts, 1)}
               </span>
-              <span className="font-mono text-[10px] text-gravy/40 ml-1.5">/{proj.toFixed(1)}</span>
+              <span className="font-mono text-[10px] text-gravy/40 ml-1.5">/{fmtNum(proj, 1)}</span>
             </div>
           </div>
         );

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import HeadToHead from "./HeadToHead";
 import { computeScoreRanks } from "@/lib/scoreRanks";
+import { fmtNum } from "@/lib/format";
 
 type Season = { year: number; num_teams: number };
 type Manager = { id: number; name: string };
@@ -481,23 +482,23 @@ export default function HistoryPage() {
     if (recordsFilterId === "all") {
       return {
         topScores: leagueRecords.topScores.map((g) => ({
-          value: Number(g.score).toFixed(1),
+          value: fmtNum(Number(g.score), 1),
           detail: `${managerName.get(g.manager_id)} \u00b7 ${g.year}${roundTag(g.time_of_season, g.round_game)}`,
         })),
         lowScores: leagueRecords.lowScores.map((g) => ({
-          value: Number(g.score).toFixed(1),
+          value: fmtNum(Number(g.score), 1),
           detail: `${managerName.get(g.manager_id)} \u00b7 ${g.year}${roundTag(g.time_of_season, g.round_game)}`,
         })),
         lowestWinningScores: leagueRecords.lowestWinningScores.map((g) => ({
-          value: Number(g.score).toFixed(1),
+          value: fmtNum(Number(g.score), 1),
           detail: `${managerName.get(g.manager_id)} def. ${managerName.get(g.opponent_manager_id)} \u00b7 ${g.year}${roundTag(g.time_of_season, g.round_game)}`,
         })),
         highestLosingScores: leagueRecords.highestLosingScores.map((g) => ({
-          value: Number(g.score).toFixed(1),
+          value: fmtNum(Number(g.score), 1),
           detail: `${managerName.get(g.manager_id)} lost to ${managerName.get(g.opponent_manager_id)} \u00b7 ${g.year}${roundTag(g.time_of_season, g.round_game)}`,
         })),
         topMargins: leagueRecords.topMargins.map((m) => ({
-          value: `${m.margin.toFixed(1)} pts`,
+          value: `${fmtNum(m.margin, 1)} pts`,
           detail: `${managerName.get(m.winner)} def. ${managerName.get(m.loser)} \u00b7 ${m.year}${roundTag(m.timeOfSeason, m.roundGame)}`,
         })),
         topWinsSeasons: leagueRecords.topWinsSeasons.map((s) => ({
@@ -509,15 +510,15 @@ export default function HistoryPage() {
           detail: `${managerName.get(s.manager_id)} \u00b7 ${s.year}`,
         })),
         topPointsSeasons: leagueRecords.topPointsSeasons.map((s) => ({
-          value: Number(s.pf).toFixed(1),
+          value: fmtNum(Number(s.pf), 1),
           detail: `${managerName.get(s.manager_id)} \u00b7 ${s.year}`,
         })),
         bestDiffSeasons: leagueRecords.bestDiffSeasons.map((s) => ({
-          value: `${s.diff >= 0 ? "+" : ""}${s.diff.toFixed(1)}`,
+          value: `${s.diff >= 0 ? "+" : ""}${fmtNum(s.diff, 1)}`,
           detail: `${managerName.get(s.manager_id)} \u00b7 ${s.year}`,
         })),
         worstDiffSeasons: leagueRecords.worstDiffSeasons.map((s) => ({
-          value: `${s.diff >= 0 ? "+" : ""}${s.diff.toFixed(1)}`,
+          value: `${s.diff >= 0 ? "+" : ""}${fmtNum(s.diff, 1)}`,
           detail: `${managerName.get(s.manager_id)} \u00b7 ${s.year}`,
         })),
         topPlayoffStreaks: leagueRecords.topPlayoffStreaks.map((r) => ({
@@ -533,23 +534,23 @@ export default function HistoryPage() {
     if (!individualRecords) return null;
     return {
       topScores: individualRecords.topScores.map((g) => ({
-        value: Number(g.score).toFixed(1),
+        value: fmtNum(Number(g.score), 1),
         detail: `${g.year} \u00b7 vs ${managerName.get(g.opponent_manager_id)}${roundTag(g.time_of_season, g.round_game)}`,
       })),
       lowScores: individualRecords.lowScores.map((g) => ({
-        value: Number(g.score).toFixed(1),
+        value: fmtNum(Number(g.score), 1),
         detail: `${g.year} \u00b7 vs ${managerName.get(g.opponent_manager_id)}${roundTag(g.time_of_season, g.round_game)}`,
       })),
       lowestWinningScores: individualRecords.lowestWinningScores.map((g) => ({
-        value: Number(g.score).toFixed(1),
+        value: fmtNum(Number(g.score), 1),
         detail: `${g.year} \u00b7 def. ${managerName.get(g.opponent_manager_id)}${roundTag(g.time_of_season, g.round_game)}`,
       })),
       highestLosingScores: individualRecords.highestLosingScores.map((g) => ({
-        value: Number(g.score).toFixed(1),
+        value: fmtNum(Number(g.score), 1),
         detail: `${g.year} \u00b7 lost to ${managerName.get(g.opponent_manager_id)}${roundTag(g.time_of_season, g.round_game)}`,
       })),
       topMargins: individualRecords.topMargins.map((m) => ({
-        value: `${m.margin.toFixed(1)} pts`,
+        value: `${fmtNum(m.margin, 1)} pts`,
         detail: `def. ${managerName.get(m.opponent)} \u00b7 ${m.year}${roundTag(m.timeOfSeason, m.roundGame)}`,
       })),
       topWinsSeasons: individualRecords.topWinsSeasons.map((s) => ({
@@ -561,15 +562,15 @@ export default function HistoryPage() {
         detail: `${s.year}`,
       })),
       topPointsSeasons: individualRecords.topPointsSeasons.map((s) => ({
-        value: Number(s.pf).toFixed(1),
+        value: fmtNum(Number(s.pf), 1),
         detail: `${s.year}`,
       })),
       bestDiffSeasons: individualRecords.bestDiffSeasons.map((s) => ({
-        value: `${s.diff >= 0 ? "+" : ""}${s.diff.toFixed(1)}`,
+        value: `${s.diff >= 0 ? "+" : ""}${fmtNum(s.diff, 1)}`,
         detail: `${s.year}`,
       })),
       worstDiffSeasons: individualRecords.worstDiffSeasons.map((s) => ({
-        value: `${s.diff >= 0 ? "+" : ""}${s.diff.toFixed(1)}`,
+        value: `${s.diff >= 0 ? "+" : ""}${fmtNum(s.diff, 1)}`,
         detail: `${s.year}`,
       })),
       topPlayoffStreaks: individualRecords.topPlayoffStreaks.map((r) => ({
@@ -750,11 +751,11 @@ export default function HistoryPage() {
                         {r.name}
                       </td>
                       <td className="text-center py-2 font-mono align-top whitespace-nowrap">{r.w}-{r.l}</td>
-                      <td className="text-center py-2 font-mono align-top whitespace-nowrap">{(r.winPct * 100).toFixed(1)}%</td>
-                      <td className="text-center py-2 font-mono align-top whitespace-nowrap">{r.pf.toFixed(1)}</td>
-                      <td className="text-center py-2 font-mono align-top whitespace-nowrap">{r.pa.toFixed(1)}</td>
-                      <td className="text-center py-2 font-mono align-top whitespace-nowrap">{r.ppg.toFixed(1)}</td>
-                      <td className="text-center py-2 font-mono align-top whitespace-nowrap">{r.papg.toFixed(1)}</td>
+                      <td className="text-center py-2 font-mono align-top whitespace-nowrap">{fmtNum((r.winPct * 100), 1)}%</td>
+                      <td className="text-center py-2 font-mono align-top whitespace-nowrap">{fmtNum(r.pf, 1)}</td>
+                      <td className="text-center py-2 font-mono align-top whitespace-nowrap">{fmtNum(r.pa, 1)}</td>
+                      <td className="text-center py-2 font-mono align-top whitespace-nowrap">{fmtNum(r.ppg, 1)}</td>
+                      <td className="text-center py-2 font-mono align-top whitespace-nowrap">{fmtNum(r.papg, 1)}</td>
                       <td className="text-center py-2 font-mono align-top whitespace-nowrap">{r.seasonsPlayed}</td>
                       <td className="text-center py-2 font-mono text-carolina font-bold align-top whitespace-nowrap">{r.titles > 0 ? r.titles : "\u2014"}</td>
                       <td className="text-center py-2 font-mono align-top whitespace-nowrap">{r.regSeasonTitles > 0 ? r.regSeasonTitles : "\u2014"}</td>

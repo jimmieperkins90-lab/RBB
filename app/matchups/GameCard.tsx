@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { formatScoreRank, ScoreRank } from "@/lib/scoreRanks";
+import { fmtNum } from "@/lib/format";
 
 const POS_ORDER: Record<string, number> = {
   QB: 0,
@@ -134,7 +135,7 @@ function MiniPlayerList({ rows, muted = false }: { rows: LineupRow[]; muted?: bo
               <span className="text-xs font-semibold text-coffee truncate">{r.player_name}</span>
             </div>
             <span className={`font-mono text-xs font-bold flex-shrink-0 ${beat ? "text-green-700" : "text-burnt"}`}>
-              {pts.toFixed(1)}
+              {fmtNum(pts, 1)}
             </span>
           </div>
         );
@@ -172,9 +173,9 @@ function ScoreRow({
       </span>
       <div className="text-right">
         <div className={`font-mono text-lg font-bold ${winner ? "text-green-700" : "text-gravy/60"}`}>
-          {Number(score).toFixed(1)}
+          {fmtNum(Number(score), 1)}
         </div>
-        <div className="font-mono text-[10px] text-gravy/40">proj {Number(proj).toFixed(1)}</div>
+        <div className="font-mono text-[10px] text-gravy/40">proj {fmtNum(Number(proj), 1)}</div>
       </div>
     </div>
   );

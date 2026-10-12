@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useMemo, useState } from "react";
+import { fmtNum } from "@/lib/format";
 
 type Offer = { manager_id: number; manager_name: string; amount: number; reason: string };
 type Claim = {
@@ -89,7 +90,7 @@ export default function FaabTable({ claims, year }: { claims: Claim[]; year: num
                         <span className="ml-2 text-gravy/40 font-mono text-xs">{isOpen ? "\u25b2" : "\u25bc"}</span>
                       )}
                     </td>
-                    <td className="text-center py-2 px-3 font-mono font-bold text-burnt">${c.winning_bid}</td>
+                    <td className="text-center py-2 px-3 font-mono font-bold text-burnt">${fmtNum(c.winning_bid, 0)}</td>
                     <td className="text-right py-2 pr-4 font-mono text-xs text-gravy/50 hidden md:table-cell">{c.award_date}</td>
                   </tr>
                   {isOpen && c.offers.length > 0 && (
@@ -103,7 +104,7 @@ export default function FaabTable({ claims, year }: { claims: Claim[]; year: num
                               className="grid grid-cols-[1fr_60px_1fr] items-center gap-2 px-3 py-1.5 rounded font-mono text-xs bg-plate border border-biscuit"
                             >
                               <span className="text-coffee font-semibold">{o.manager_name}</span>
-                              <span className="text-burnt font-bold text-center">${o.amount}</span>
+                              <span className="text-burnt font-bold text-center">${fmtNum(o.amount, 0)}</span>
                               <span className="text-gravy/50 text-right">{o.reason}</span>
                             </div>
                           ))}

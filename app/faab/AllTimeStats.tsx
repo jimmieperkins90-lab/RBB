@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useMemo, useState } from "react";
+import { fmtNum } from "@/lib/format";
 
 type Claim = {
   id: number;
@@ -189,7 +190,7 @@ export default function AllTimeStats({
                     <span className="ml-2 text-gravy/40 font-mono text-xs">{isOpen ? "\u25b2" : "\u25bc"}</span>
                   </span>
                   <span className="font-mono text-sm text-right">
-                    <span className="font-bold text-burnt">${s.total}</span>
+                    <span className="font-bold text-burnt">${fmtNum(s.total, 0)}</span>
                     <span className="text-gravy/50 ml-1.5">/ {s.count}</span>
                   </span>
                 </button>
@@ -204,7 +205,7 @@ export default function AllTimeStats({
                           <span className="text-coffee font-semibold">
                             {c.player_name} <span className="text-gravy/40">({c.position})</span>
                           </span>
-                          <span className="text-burnt font-bold text-center">${c.winning_bid}</span>
+                          <span className="text-burnt font-bold text-center">${fmtNum(c.winning_bid, 0)}</span>
                           <span className="text-gravy/50 text-right">{c.year}</span>
                         </div>
                       ))}
@@ -273,7 +274,7 @@ export default function AllTimeStats({
                         </td>
                         <td className="py-2 px-3 font-mono text-gravy/80">{c.manager_name}</td>
                         <td className="py-2 px-3 font-mono text-gravy/80">{c.year}</td>
-                        <td className="py-2 px-3 font-mono font-bold text-burnt text-right">${c.winning_bid}</td>
+                        <td className="py-2 px-3 font-mono font-bold text-burnt text-right">${fmtNum(c.winning_bid, 0)}</td>
                       </tr>
                       {isOpen && (
                         <tr className="bg-cream/60">
@@ -288,7 +289,7 @@ export default function AllTimeStats({
                                     className="grid grid-cols-[1fr_60px_1fr] items-center gap-2 px-3 py-1.5 rounded font-mono text-xs bg-plate border border-biscuit"
                                   >
                                     <span className="text-coffee font-semibold">{o.manager_name}</span>
-                                    <span className="text-burnt font-bold text-center">${o.amount}</span>
+                                    <span className="text-burnt font-bold text-center">${fmtNum(o.amount, 0)}</span>
                                     <span className="text-gravy/50 text-right">{o.reason}</span>
                                   </div>
                                 ))}
@@ -330,8 +331,8 @@ export default function AllTimeStats({
                       <span className="ml-2 text-gravy/40 font-mono text-xs">{isOpen ? "\u25b2" : "\u25bc"}</span>
                     </span>
                     <span className="font-mono text-sm text-right">
-                      <span className="font-bold text-burnt">+${m.total}</span>
-                      <span className="text-gravy/50 ml-1.5">total &middot; +${m.avgTrimmed.toFixed(1)} avg</span>
+                      <span className="font-bold text-burnt">+${fmtNum(m.total, 0)}</span>
+                      <span className="text-gravy/50 ml-1.5">total &middot; +${fmtNum(m.avgTrimmed, 1)} avg</span>
                       <span className="text-gravy/40 ml-1.5">/ {m.count}</span>
                     </span>
                   </button>
@@ -352,8 +353,8 @@ export default function AllTimeStats({
                               {c.player_name} <span className="text-gravy/40">({c.position})</span>
                             </span>
                             <span className="text-burnt font-bold text-center">
-                              +${c.overspend}{" "}
-                              <span className="text-gravy/40">(${c.winning_bid} vs ${c.nextOfferAmount})</span>
+                              +${fmtNum(c.overspend, 0)}{" "}
+                              <span className="text-gravy/40">(${fmtNum(c.winning_bid, 0)} vs ${fmtNum(c.nextOfferAmount, 0)})</span>
                             </span>
                             <span className="text-gravy/50 text-right">{c.year}</span>
                           </div>

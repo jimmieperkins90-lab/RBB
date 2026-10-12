@@ -1,3 +1,4 @@
+import { fmtNum } from "@/lib/format";
 export type ScoreStat = {
   value: number;
   managerName: string;
@@ -86,29 +87,29 @@ export default function SeasonStatsPanel({
         {highest && (
           <StatCard
             label="Highest Score"
-            value={highest.value.toFixed(1)}
+            value={fmtNum(highest.value, 1)}
             detail={`${highest.managerName} vs ${highest.opponentName} \u00b7 ${weekLabel(highest.week, highest.time_of_season)}`}
           />
         )}
         {lowest && (
           <StatCard
             label="Lowest Score"
-            value={lowest.value.toFixed(1)}
+            value={fmtNum(lowest.value, 1)}
             detail={`${lowest.managerName} vs ${lowest.opponentName} \u00b7 ${weekLabel(lowest.week, lowest.time_of_season)}`}
           />
         )}
         {blowout && (
           <StatCard
             label="Biggest Blowout"
-            value={`+${blowout.margin.toFixed(1)}`}
-            detail={`${blowout.winnerName} def. ${blowout.loserName} ${blowout.winnerScore.toFixed(1)}-${blowout.loserScore.toFixed(1)} \u00b7 ${weekLabel(blowout.week, blowout.time_of_season)}`}
+            value={`+${fmtNum(blowout.margin, 1)}`}
+            detail={`${blowout.winnerName} def. ${blowout.loserName} ${fmtNum(blowout.winnerScore, 1)}-${fmtNum(blowout.loserScore, 1)} \u00b7 ${weekLabel(blowout.week, blowout.time_of_season)}`}
           />
         )}
         {closest && (
           <StatCard
             label="Closest Game"
-            value={closest.margin.toFixed(1)}
-            detail={`${closest.winnerName} def. ${closest.loserName} ${closest.winnerScore.toFixed(1)}-${closest.loserScore.toFixed(1)} \u00b7 ${weekLabel(closest.week, closest.time_of_season)}`}
+            value={fmtNum(closest.margin, 1)}
+            detail={`${closest.winnerName} def. ${closest.loserName} ${fmtNum(closest.winnerScore, 1)}-${fmtNum(closest.loserScore, 1)} \u00b7 ${weekLabel(closest.week, closest.time_of_season)}`}
           />
         )}
         {longestWinStreak.length > 0 && (
@@ -128,42 +129,42 @@ export default function SeasonStatsPanel({
         {highestSeasonPct && (
           <StatCard
             label="Highest % of Max (Season)"
-            value={`${highestSeasonPct.value.toFixed(1)}%`}
-            detail={`${highestSeasonPct.managerName} \u00b7 ${highestSeasonPct.actual.toFixed(1)} of ${highestSeasonPct.possible.toFixed(1)}`}
+            value={`${fmtNum(highestSeasonPct.value, 1)}%`}
+            detail={`${highestSeasonPct.managerName} \u00b7 ${fmtNum(highestSeasonPct.actual, 1)} of ${fmtNum(highestSeasonPct.possible, 1)}`}
           />
         )}
         {lowestSeasonPct && (
           <StatCard
             label="Lowest % of Max (Season)"
-            value={`${lowestSeasonPct.value.toFixed(1)}%`}
-            detail={`${lowestSeasonPct.managerName} \u00b7 ${lowestSeasonPct.actual.toFixed(1)} of ${lowestSeasonPct.possible.toFixed(1)}`}
+            value={`${fmtNum(lowestSeasonPct.value, 1)}%`}
+            detail={`${lowestSeasonPct.managerName} \u00b7 ${fmtNum(lowestSeasonPct.actual, 1)} of ${fmtNum(lowestSeasonPct.possible, 1)}`}
           />
         )}
         {mostPF && (
           <StatCard
             label="Most Total PF (Reg. Season)"
-            value={mostPF.value.toFixed(1)}
+            value={fmtNum(mostPF.value, 1)}
             detail={mostPF.managerName}
           />
         )}
         {mostPA && (
           <StatCard
             label="Most Total PA (Reg. Season)"
-            value={mostPA.value.toFixed(1)}
+            value={fmtNum(mostPA.value, 1)}
             detail={mostPA.managerName}
           />
         )}
         {bestMargin && (
           <StatCard
             label="Largest Margin, Positive (Reg. Season)"
-            value={`+${bestMargin.value.toFixed(1)}`}
+            value={`+${fmtNum(bestMargin.value, 1)}`}
             detail={bestMargin.managerName}
           />
         )}
         {worstMargin && (
           <StatCard
             label="Largest Margin, Negative (Reg. Season)"
-            value={worstMargin.value.toFixed(1)}
+            value={fmtNum(worstMargin.value, 1)}
             detail={worstMargin.managerName}
           />
         )}
