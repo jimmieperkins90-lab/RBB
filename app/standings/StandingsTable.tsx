@@ -19,6 +19,12 @@ type PlayoffOddsRow = {
   playoff_pct: number;
   bye_pct: number;
   as_of_week: number;
+  next_week: number | null;
+  next_opponent_id: number | null;
+  playoff_pct_if_win: number | null;
+  playoff_pct_if_loss: number | null;
+  bye_pct_if_win: number | null;
+  bye_pct_if_loss: number | null;
 };
 
 type PossiblePointsRow = {
@@ -230,7 +236,7 @@ export default function StandingsTable({
     return map;
   }, [weeklyRanks, topN]);
 
-  const colCount = (hasDivisions ? 7 : 6) + 3 + 2 + (seasonComplete ? 0 : 1);
+  const colCount = (hasDivisions ? 7 : 6) + 3 + 2 + (seasonComplete ? 0 : 5);
 
   const seasonOrder = (t: string) => (t === "Regular" ? 0 : t === "Playoff" ? 1 : 2);
 
@@ -386,6 +392,14 @@ export default function StandingsTable({
               {seasonComplete ? "Finish" : "Playoff Odds"}
             </th>
             {!seasonComplete && <th className="text-center pr-4 py-2 font-semibold whitespace-nowrap">Bye Odds</th>}
+            {!seasonComplete && (
+              <>
+                <th className="text-center pr-3 py-2 font-semibold whitespace-nowrap" title="Playoff odds if this team wins its next game">Playoff If Win</th>
+                <th className="text-center pr-3 py-2 font-semibold whitespace-nowrap" title="Playoff odds if this team loses its next game">Playoff If Loss</th>
+                <th className="text-center pr-3 py-2 font-semibold whitespace-nowrap" title="Bye odds if this team wins its next game">Bye If Win</th>
+                <th className="text-center pr-4 py-2 font-semibold whitespace-nowrap" title="Bye odds if this team loses its next game">Bye If Loss</th>
+              </>
+            )}
           </tr>
         </thead>
         <tbody>
@@ -423,6 +437,14 @@ export default function StandingsTable({
                   <td className="text-center pr-4 py-2 font-mono font-bold whitespace-nowrap">
                     <ByeOddsCell odds={oddsByManager.get(t.manager_id)} />
                   </td>
+                )}
+                {!seasonComplete && (
+                  <>
+                    <ScenarioCell v={oddsByManager.get(t.manager_id)?.playoff_pct_if_win} good />
+                    <ScenarioCell v={oddsByManager.get(t.manager_id)?.playoff_pct_if_loss} />
+                    <ScenarioCell v={oddsByManager.get(t.manager_id)?.bye_pct_if_win} good />
+                    <ScenarioCell v={oddsByManager.get(t.manager_id)?.bye_pct_if_loss} />
+                  </>
                 )}
               </tr>
               {openManagerId === t.manager_id && (
@@ -506,6 +528,7 @@ export default function StandingsTable({
       {!seasonComplete && oddsAsOfWeek != null && (
         <p className="text-center font-mono text-[10px] text-gravy/50 py-2 bg-biscuit/20">
           Playoff odds as of week {oddsAsOfWeek}
+          {playoffOdds[0]?.next_week != null && ` \u00b7 If Win / If Loss = odds after week ${playoffOdds[0].next_week}\u2019s game (bye odds are the least certain)`}
         </p>
       )}
     </div>
@@ -602,6 +625,13 @@ function ByeOddsCell({ odds }: { odds: PlayoffOddsRow | undefined }) {
   if (!odds) return <span className="text-gravy/40">{"\u2014"}</span>;
   const pct = Math.round(Number(odds.bye_pct));
   return <span className={pct >= 25 ? "text-green-700" : "text-gravy/70"}>{pct}%</span>;
+}
+
+function ScenarioCell({ v, good }: { v: number | null | undefined; good?: boolean }) {
+  if (v == null) return <td className="text-center pr-3 py-2 font-mono text-gravy/40">{"\u2014"}</td>;
+  const pct = Number(v);
+  const txt = pct > 0 && pct < 1 ? "<1%" : pct > 99 && pct < 100 ? ">99%" : `${Math.round(pct)}%`;
+  return <td className={`text-center pr-3 py-2 font-mono whitespace-nowrap ${good ? "text-green-700" : "text-burnt"}`}>{txt}</td>;
 }
 
 function RosterList({ label, entries }: { label: string; entries: RosterEntry[] }) {
