@@ -664,72 +664,72 @@ export default function HistoryPage() {
               <div className="menu-divider w-40 mx-auto mt-3" />
             </div>
             <div className="bg-plate border-2 border-coffee rounded-lg shadow-[6px_6px_0_#2B1B12] overflow-hidden overflow-x-auto">
-              <table className="w-full text-sm border-separate border-spacing-0" style={{ minWidth: `${1140 + allPlaces.length * 90}px` }}>
+              <table className="w-full text-sm border-separate border-spacing-0 [&>thead>tr>th]:border-l [&>thead>tr>th]:border-biscuit/70 [&>thead>tr>th]:px-2 [&>thead>tr>th]:leading-tight [&>thead>tr>th]:align-bottom [&>thead>tr>th]:border-b [&>thead>tr>th]:border-b-biscuit [&>tbody>tr>td]:border-l [&>tbody>tr>td]:border-biscuit/50 [&>tbody>tr>td]:px-2 [&>tbody>tr>td]:border-b [&>tbody>tr>td]:border-b-biscuit/50" style={{ minWidth: `${1140 + allPlaces.length * 90}px` }}>
                 <thead>
                   <tr className="font-mono uppercase text-[11px] text-gravy/70 border-b border-biscuit bg-biscuit/30">
                     <th
                       onClick={() => handleSort("name", "asc")}
-                      className="sticky left-0 z-10 bg-biscuit text-left pl-4 py-2 font-semibold whitespace-nowrap cursor-pointer select-none hover:text-coffee"
+                      className="sticky left-0 z-20 bg-biscuit text-left !pl-4 py-2 font-semibold cursor-pointer shadow-[2px_0_0_#E7CB9E] select-none hover:text-coffee"
                     >
                       Manager{sortIndicator("name")}
                     </th>
                     <th
                       onClick={() => handleSort("w")}
-                      className="text-center py-2 font-semibold whitespace-nowrap cursor-pointer select-none hover:text-coffee"
+                      className="text-center py-2 font-semibold cursor-pointer select-none hover:text-coffee"
                     >
                       Record{sortIndicator("w")}
                     </th>
                     <th
                       onClick={() => handleSort("winPct")}
-                      className="text-center py-2 font-semibold whitespace-nowrap cursor-pointer select-none hover:text-coffee"
+                      className="text-center py-2 font-semibold cursor-pointer select-none hover:text-coffee"
                     >
                       Win%{sortIndicator("winPct")}
                     </th>
                     <th
                       onClick={() => handleSort("pf")}
-                      className="text-center py-2 font-semibold whitespace-nowrap cursor-pointer select-none hover:text-coffee"
+                      className="text-center py-2 font-semibold cursor-pointer select-none hover:text-coffee"
                     >
                       PF{sortIndicator("pf")}
                     </th>
                     <th
                       onClick={() => handleSort("pa")}
-                      className="text-center py-2 font-semibold whitespace-nowrap cursor-pointer select-none hover:text-coffee"
+                      className="text-center py-2 font-semibold cursor-pointer select-none hover:text-coffee"
                     >
                       PA{sortIndicator("pa")}
                     </th>
                     <th
                       onClick={() => handleSort("ppg")}
-                      className="text-center py-2 font-semibold whitespace-nowrap cursor-pointer select-none hover:text-coffee"
+                      className="text-center py-2 font-semibold cursor-pointer select-none hover:text-coffee"
                     >
                       PF/G{sortIndicator("ppg")}
                     </th>
                     <th
                       onClick={() => handleSort("papg")}
-                      className="text-center py-2 font-semibold whitespace-nowrap cursor-pointer select-none hover:text-coffee"
+                      className="text-center py-2 font-semibold cursor-pointer select-none hover:text-coffee"
                     >
                       PA/G{sortIndicator("papg")}
                     </th>
                     <th
                       onClick={() => handleSort("seasonsPlayed")}
-                      className="text-center py-2 font-semibold whitespace-nowrap cursor-pointer select-none hover:text-coffee"
+                      className="text-center py-2 font-semibold cursor-pointer select-none hover:text-coffee"
                     >
                       Years{sortIndicator("seasonsPlayed")}
                     </th>
                     <th
                       onClick={() => handleSort("titles")}
-                      className="text-center py-2 font-semibold whitespace-nowrap cursor-pointer select-none hover:text-coffee"
+                      className="text-center py-2 font-semibold cursor-pointer select-none hover:text-coffee"
                     >
                       Titles{sortIndicator("titles")}
                     </th>
                     <th
                       onClick={() => handleSort("regSeasonTitles")}
-                      className="text-center py-2 font-semibold whitespace-nowrap cursor-pointer select-none hover:text-coffee"
+                      className="text-center py-2 font-semibold cursor-pointer select-none hover:text-coffee"
                     >
                       Reg. Season Titles{sortIndicator("regSeasonTitles")}
                     </th>
                     <th
                       onClick={() => handleSort("playoffApps")}
-                      className="text-center py-2 font-semibold whitespace-nowrap cursor-pointer select-none hover:text-coffee"
+                      className="text-center py-2 font-semibold cursor-pointer select-none hover:text-coffee"
                     >
                       Playoffs{sortIndicator("playoffApps")}
                     </th>
@@ -737,7 +737,7 @@ export default function HistoryPage() {
                       <th
                         key={place}
                         onClick={() => handleSort(`place:${place}`)}
-                        className="text-center py-2 font-semibold whitespace-nowrap cursor-pointer select-none hover:text-coffee"
+                        className="text-center py-2 font-semibold cursor-pointer select-none hover:text-coffee"
                       >
                         {place}{sortIndicator(`place:${place}`)}
                       </th>
@@ -746,8 +746,8 @@ export default function HistoryPage() {
                 </thead>
                 <tbody>
                   {sortedCareerTable.map((r, i) => (
-                    <tr key={i} className={`border-b border-biscuit/60 last:border-0 ${r.titles > 0 ? "bg-carolina/10" : ""}`}>
-                      <td className={`sticky left-0 z-10 pl-4 py-2 font-semibold text-coffee align-top whitespace-nowrap ${r.titles > 0 ? "bg-carolina/10" : "bg-plate"}`}>
+                    <tr key={i} className={r.titles > 0 ? "bg-carolina/10" : ""}>
+                      <td className={`sticky left-0 z-10 !pl-4 py-2 font-semibold text-coffee align-top whitespace-nowrap shadow-[2px_0_0_#E7CB9E] bg-plate bg-gradient-to-r ${r.titles > 0 ? "from-carolina/10 to-carolina/10" : "from-transparent to-transparent"}`}>
                         {r.name}
                       </td>
                       <td className="text-center py-2 font-mono align-top whitespace-nowrap">{r.w}-{r.l}</td>

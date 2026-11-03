@@ -29,7 +29,7 @@ async function getSeasons() {
   return (data ?? []).map((s: any) => s.year as number);
 }
 
-async function getYearClaims(year: number) {
+async function getYearClaims(year: number, newestFirst = false) {
   const { data } = await supabase
     .from("faab_claims")
     .select(
@@ -73,10 +73,27 @@ async function getYearClaims(year: number) {
     });
   }
 
-  return claims.map((c) => ({
+  const withOffers = claims.map((c) => ({
     ...c,
     offers: (offersByClaimId.get(c.id) ?? []).sort((a, b) => (b.amount ?? 0) - (a.amount ?? 0)),
   }));
+  return newestFirst ? sortNewestFirst(withOffers) : withOffers;
+}
+
+// award_date looks like "Oct 21,4:55 am". Newest first; claims awarded in the same
+// batch (same timestamp) keep their original order.
+const MONTHS: Record<string, number> = { Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5, Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11 };
+function awardTime(s: string | null): number {
+  const m = /^\s*([A-Za-z]{3})[a-z]*\.?\s+(\d{1,2})\s*,\s*(\d{1,2}):(\d{2})\s*([ap]m)/i.exec(s ?? "");
+  if (!m) return 0;
+  let h = parseInt(m[3], 10) % 12;
+  if (m[5].toLowerCase() === "pm") h += 12;
+  const mon = MONTHS[m[1].charAt(0).toUpperCase() + m[1].slice(1, 3).toLowerCase()];
+  if (mon === undefined) return 0;
+  return ((mon * 31 + parseInt(m[2], 10)) * 24 + h) * 60 + parseInt(m[4], 10);
+}
+function sortNewestFirst<T extends { id: number; award_date: string }>(rows: T[]): T[] {
+  return rows.slice().sort((a, b) => awardTime(b.award_date) - awardTime(a.award_date) || a.id - b.id);
 }
 
 async function getYearStats(year: number) {
@@ -146,7 +163,7 @@ export default async function FaabPage({
   const year = searchParams.year ? parseInt(searchParams.year, 10) : latestYear;
 
   const [claims, stats, allClaims, offersByClaimId] = await Promise.all([
-    getYearClaims(year),
+    getYearClaims(year, year === latestYear),
     getYearStats(year),
     getAllClaims(),
     getOffersByClaimId(),
