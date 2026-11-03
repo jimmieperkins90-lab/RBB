@@ -46,7 +46,7 @@ export default function WhatIfPanel({
         <span className="font-mono text-[10px] text-cream/70">Tap a result to see who it helps</span>
       </div>
       <div className="divide-y divide-biscuit/60">
-        {games.map((g) => {
+        {games.map((g: { a: number; b: number }) => {
           const outs = [
             { w: g.a, l: g.b },
             { w: g.b, l: g.a },
