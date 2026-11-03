@@ -550,8 +550,7 @@ export default function StandingsTable({
       </div>
       {!seasonComplete && oddsAsOfWeek != null && (
         <p className="text-center font-mono text-[10px] text-gravy/50 py-2 bg-biscuit/20">
-          Playoff odds as of week {oddsAsOfWeek} \u00b7 SOS = average scoring rating of opponents (#1 = hardest schedule)
-          {playoffOdds[0]?.next_week != null && ` \u00b7 If Win / If Loss = odds after week ${playoffOdds[0].next_week}\u2019s game (bye odds are the least certain)`}
+          Playoff odds as of week {oddsAsOfWeek} &middot; SOS = average scoring rating of opponents (#1 = hardest schedule)
         </p>
       )}
     </div>
