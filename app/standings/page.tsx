@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import StandingsTable from "./StandingsTable";
+import WhatIf from "./WhatIf";
 import { computeScoreRanks, rankKey, ScoreRank } from "@/lib/scoreRanks";
 import SeasonStatsPanel, {
   ScoreStat,
@@ -592,6 +593,8 @@ export default async function StandingsPage({
             weeklyRanks={weeklyRanks}
           />
         )}
+
+        {!seasonComplete && standings.length > 0 && <WhatIf year={year} />}
       </section>
     </div>
   );
