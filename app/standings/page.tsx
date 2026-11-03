@@ -217,6 +217,51 @@ async function getPlayoffOdds(year: number) {
   return data ?? [];
 }
 
+// Strength of schedule. Each team gets a scoring rating (points per game pulled toward the league
+// average, same as the playoff-odds model); SOS is the average rating of the opponents already
+// played, SOS Left the same for games still to play. Rank 1 = hardest schedule.
+const SOS_LEAGUE_MEAN = 108.6065;
+const SOS_SHRINK = 4;
+async function getScheduleStrength(year: number) {
+  const { data } = await supabase
+    .from("matchups")
+    .select("manager_id, opponent_manager_id, score, game_played")
+    .eq("year", year)
+    .eq("time_of_season", "Regular");
+  const rows = data ?? [];
+  const pf = new Map<number, number>();
+  const gp = new Map<number, number>();
+  rows.forEach((r: any) => {
+    if (!r.game_played) return;
+    pf.set(r.manager_id, (pf.get(r.manager_id) ?? 0) + Number(r.score ?? 0));
+    gp.set(r.manager_id, (gp.get(r.manager_id) ?? 0) + 1);
+  });
+  const rating = (m: number) => ((pf.get(m) ?? 0) + SOS_SHRINK * SOS_LEAGUE_MEAN) / ((gp.get(m) ?? 0) + SOS_SHRINK);
+  const acc = new Map<number, { p: number[]; r: number[] }>();
+  rows.forEach((r: any) => {
+    const cur = acc.get(r.manager_id) ?? { p: [], r: [] };
+    (r.game_played ? cur.p : cur.r).push(rating(r.opponent_manager_id));
+    acc.set(r.manager_id, cur);
+  });
+  const avg = (a: number[]) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : null);
+  const out = Array.from(acc.entries()).map(([manager_id, v]) => ({
+    manager_id,
+    sos: avg(v.p),
+    sosLeft: avg(v.r),
+    sosRank: null as number | null,
+    sosLeftRank: null as number | null,
+  }));
+  const rankBy = (key: "sos" | "sosLeft", rk: "sosRank" | "sosLeftRank") => {
+    out
+      .filter((o) => o[key] != null)
+      .sort((a, b) => (b[key] as number) - (a[key] as number))
+      .forEach((o, i) => (o[rk] = i + 1));
+  };
+  rankBy("sos", "sosRank");
+  rankBy("sosLeft", "sosLeftRank");
+  return out;
+}
+
 type PossiblePointsRow = {
   manager_id: number;
   totalActual: number;
@@ -513,12 +558,13 @@ export default async function StandingsPage({
   const latestYear = seasons[0]?.year ?? 2025;
   const year = searchParams.year ? parseInt(searchParams.year, 10) : latestYear;
 
-  const [{ rows: standings, seasonComplete }, playoffOdds, seasonGames, possiblePoints, allScores] = await Promise.all([
+  const [{ rows: standings, seasonComplete }, playoffOdds, seasonGames, possiblePoints, allScores, scheduleStrength] = await Promise.all([
     getStandings(year),
     getPlayoffOdds(year),
     getSeasonGames(year),
     getPossiblePointsStats(year),
     getAllScores(),
+    getScheduleStrength(year),
   ]);
   const { results: possiblePointsStats, highestSeasonPct, lowestSeasonPct } = possiblePoints;
 
@@ -587,6 +633,7 @@ export default async function StandingsPage({
             hasDivisions={hasDivisions}
             seasonComplete={seasonComplete}
             playoffOdds={playoffOdds}
+            scheduleStrength={scheduleStrength}
             possiblePointsStats={possiblePointsStats}
             scoreRanks={scoreRanks}
             weeklyRanks={weeklyRanks}

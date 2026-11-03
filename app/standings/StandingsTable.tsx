@@ -27,6 +27,14 @@ type PlayoffOddsRow = {
   bye_pct_if_loss: number | null;
 };
 
+type ScheduleStrengthRow = {
+  manager_id: number;
+  sos: number | null;
+  sosLeft: number | null;
+  sosRank: number | null;
+  sosLeftRank: number | null;
+};
+
 type PossiblePointsRow = {
   manager_id: number;
   pctPlayed: number;
@@ -196,6 +204,7 @@ export default function StandingsTable({
   hasDivisions,
   seasonComplete,
   playoffOdds,
+  scheduleStrength,
   possiblePointsStats,
   scoreRanks,
   weeklyRanks,
@@ -205,6 +214,7 @@ export default function StandingsTable({
   hasDivisions: boolean;
   seasonComplete: boolean;
   playoffOdds: PlayoffOddsRow[];
+  scheduleStrength: ScheduleStrengthRow[];
   possiblePointsStats: PossiblePointsRow[];
   scoreRanks: Record<string, ScoreRank>;
   weeklyRanks: WeeklyRankRow[];
@@ -220,6 +230,7 @@ export default function StandingsTable({
 
   const oddsByManager = new Map(playoffOdds.map((o) => [o.manager_id, o]));
   const oddsAsOfWeek = playoffOdds[0]?.as_of_week;
+  const sosByManager = new Map(scheduleStrength.map((r) => [r.manager_id, r]));
   const possibleByManager = new Map(possiblePointsStats.map((p) => [p.manager_id, p]));
 
   // Top-N threshold for the "Top N Scores" / "Faced Top N" columns (ties count as top N).
@@ -236,7 +247,7 @@ export default function StandingsTable({
     return map;
   }, [weeklyRanks, topN]);
 
-  const colCount = (hasDivisions ? 7 : 6) + 3 + 2 + (seasonComplete ? 0 : 5);
+  const colCount = (hasDivisions ? 7 : 6) + 3 + 2 + (seasonComplete ? 0 : 7);
 
   const seasonOrder = (t: string) => (t === "Regular" ? 0 : t === "Playoff" ? 1 : 2);
 
@@ -388,6 +399,12 @@ export default function StandingsTable({
             >
               Faced Top {topN}
             </th>
+            {!seasonComplete && (
+              <>
+                <th className="text-center py-2 font-semibold" title="Average scoring rating of opponents already played. Rank 1 = hardest schedule so far.">SOS</th>
+                <th className="text-center py-2 font-semibold" title="Average scoring rating of opponents still to play. Rank 1 = hardest remaining schedule.">SOS Left</th>
+              </>
+            )}
             <th className="text-center py-2 font-semibold">
               {seasonComplete ? "Finish" : "Playoff Odds"}
             </th>
@@ -426,6 +443,12 @@ export default function StandingsTable({
                 <td className="text-center py-2 font-mono whitespace-nowrap">{fmtNum(t.record.pa, 1)}</td>
                 <PossiblePointsCells stats={possibleByManager.get(t.manager_id)} />
                 <TopNCells stats={topNByManager.get(t.manager_id)} />
+                {!seasonComplete && (
+                  <>
+                    <SosCell value={sosByManager.get(t.manager_id)?.sos} rank={sosByManager.get(t.manager_id)?.sosRank} />
+                    <SosCell value={sosByManager.get(t.manager_id)?.sosLeft} rank={sosByManager.get(t.manager_id)?.sosLeftRank} />
+                  </>
+                )}
                 <td className="text-center py-2 font-mono font-bold whitespace-nowrap">
                   {seasonComplete ? (
                     <span className="text-burnt">{t.final_place ?? "\u2014"}</span>
@@ -527,7 +550,7 @@ export default function StandingsTable({
       </div>
       {!seasonComplete && oddsAsOfWeek != null && (
         <p className="text-center font-mono text-[10px] text-gravy/50 py-2 bg-biscuit/20">
-          Playoff odds as of week {oddsAsOfWeek}
+          Playoff odds as of week {oddsAsOfWeek} \u00b7 SOS = average scoring rating of opponents (#1 = hardest schedule)
           {playoffOdds[0]?.next_week != null && ` \u00b7 If Win / If Loss = odds after week ${playoffOdds[0].next_week}\u2019s game (bye odds are the least certain)`}
         </p>
       )}
@@ -625,6 +648,17 @@ function ByeOddsCell({ odds }: { odds: PlayoffOddsRow | undefined }) {
   if (!odds) return <span className="text-gravy/40">{"\u2014"}</span>;
   const pct = Math.round(Number(odds.bye_pct));
   return <span className={pct >= 25 ? "text-green-700" : "text-gravy/70"}>{pct}%</span>;
+}
+
+// Opponent rating plus rank (1 = hardest). Hard schedules in orange, easy ones in green.
+function SosCell({ value, rank }: { value: number | null | undefined; rank: number | null | undefined }) {
+  if (value == null || rank == null) return <td className="text-center py-2 font-mono text-gravy/40">{"\u2014"}</td>;
+  const tone = rank <= 4 ? "text-burnt" : rank >= 9 ? "text-green-700" : "text-gravy/70";
+  return (
+    <td className="text-center py-2 font-mono whitespace-nowrap">
+      {fmtNum(value, 1)} <span className={`text-[10px] font-bold ${tone}`}>#{rank}</span>
+    </td>
+  );
 }
 
 function ScenarioCell({ v, good }: { v: number | null | undefined; good?: boolean }) {
