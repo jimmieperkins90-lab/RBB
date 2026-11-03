@@ -650,13 +650,13 @@ function ByeOddsCell({ odds }: { odds: PlayoffOddsRow | undefined }) {
   return <span className={pct >= 25 ? "text-green-700" : "text-gravy/70"}>{pct}%</span>;
 }
 
-// Opponent rating plus rank (1 = hardest). Hard schedules in orange, easy ones in green.
+// Schedule rank (1 = hardest); the underlying opponent rating is in the hover tooltip. Hard schedules in orange, easy ones in green.
 function SosCell({ value, rank }: { value: number | null | undefined; rank: number | null | undefined }) {
   if (value == null || rank == null) return <td className="text-center py-2 font-mono text-gravy/40">{"\u2014"}</td>;
   const tone = rank <= 4 ? "text-burnt" : rank >= 9 ? "text-green-700" : "text-gravy/70";
   return (
-    <td className="text-center py-2 font-mono whitespace-nowrap">
-      {fmtNum(value, 1)} <span className={`text-[10px] font-bold ${tone}`}>#{rank}</span>
+    <td className="text-center py-2 font-mono whitespace-nowrap" title={`Opponent rating ${fmtNum(value, 1)}`}>
+      <span className={`font-bold ${tone}`}>#{rank}</span>
     </td>
   );
 }
