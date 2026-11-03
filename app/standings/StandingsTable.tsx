@@ -364,40 +364,40 @@ export default function StandingsTable({
         ))}
       </div>
       <div className="overflow-hidden overflow-x-auto">
-      <table className="w-full min-w-[1000px] text-sm">
+      <table className="w-full min-w-[1150px] text-sm border-separate border-spacing-0 [&>thead>tr>th]:border-l [&>thead>tr>th]:border-biscuit/70 [&>tbody>tr>td]:border-l [&>tbody>tr>td]:border-biscuit/50 [&>tbody>tr>td]:px-2 [&>thead>tr>th]:px-2 [&>thead>tr>th]:leading-tight [&>thead>tr>th]:align-bottom [&>thead>tr>th]:border-b [&>tbody>tr>td]:border-b [&>tbody>tr>td]:border-b-biscuit/50">
         <thead>
           <tr className="font-mono uppercase text-[11px] text-gravy/70 border-b border-biscuit">
-            <th className="text-center py-2 font-semibold whitespace-nowrap w-10">#</th>
-            <th className="text-left py-2 font-semibold whitespace-nowrap">Manager</th>
-            {hasDivisions && <th className="text-left py-2 font-semibold whitespace-nowrap">Division</th>}
-            <th className="text-center py-2 font-semibold whitespace-nowrap">Record</th>
-            <th className="text-center py-2 font-semibold whitespace-nowrap">PF</th>
-            <th className="text-center py-2 font-semibold whitespace-nowrap">PA</th>
-            <th className="text-center py-2 font-semibold whitespace-nowrap">% Max</th>
-            <th className="text-center py-2 font-semibold whitespace-nowrap">Missed Pts</th>
-            <th className="text-center py-2 font-semibold whitespace-nowrap">Avg Missed</th>
+            <th className="sticky left-0 z-20 bg-plate text-center py-2 font-semibold w-10 min-w-[2.5rem]">#</th>
+            <th className="sticky left-10 z-20 bg-plate text-left py-2 font-semibold shadow-[2px_0_0_#E7CB9E]">Manager</th>
+            {hasDivisions && <th className="text-left py-2 font-semibold">Division</th>}
+            <th className="text-center py-2 font-semibold">Record</th>
+            <th className="text-center py-2 font-semibold">PF</th>
+            <th className="text-center py-2 font-semibold">PA</th>
+            <th className="text-center py-2 font-semibold">% Max</th>
+            <th className="text-center py-2 font-semibold">Missed Pts</th>
+            <th className="text-center py-2 font-semibold">Avg Missed</th>
             <th
-              className="text-center py-2 font-semibold whitespace-nowrap"
+              className="text-center py-2 font-semibold"
               title={`Weeks this team's score ranked in the top ${topN} of all scores that week`}
             >
               Top {topN} Scores
             </th>
             <th
-              className="text-center py-2 font-semibold whitespace-nowrap"
+              className="text-center py-2 font-semibold"
               title={`Weeks this team's opponent's score ranked in the top ${topN} of all scores that week`}
             >
               Faced Top {topN}
             </th>
-            <th className="text-center pr-4 py-2 font-semibold whitespace-nowrap">
+            <th className="text-center py-2 font-semibold">
               {seasonComplete ? "Finish" : "Playoff Odds"}
             </th>
-            {!seasonComplete && <th className="text-center pr-4 py-2 font-semibold whitespace-nowrap">Bye Odds</th>}
+            {!seasonComplete && <th className="text-center py-2 font-semibold">Bye Odds</th>}
             {!seasonComplete && (
               <>
-                <th className="text-center pr-3 py-2 font-semibold whitespace-nowrap" title="Playoff odds if this team wins its next game">Playoff If Win</th>
-                <th className="text-center pr-3 py-2 font-semibold whitespace-nowrap" title="Playoff odds if this team loses its next game">Playoff If Loss</th>
-                <th className="text-center pr-3 py-2 font-semibold whitespace-nowrap" title="Bye odds if this team wins its next game">Bye If Win</th>
-                <th className="text-center pr-4 py-2 font-semibold whitespace-nowrap" title="Bye odds if this team loses its next game">Bye If Loss</th>
+                <th className="text-center py-2 font-semibold" title="Playoff odds if this team wins its next game">Playoff If Win</th>
+                <th className="text-center py-2 font-semibold" title="Playoff odds if this team loses its next game">Playoff If Loss</th>
+                <th className="text-center py-2 font-semibold" title="Bye odds if this team wins its next game">Bye If Win</th>
+                <th className="text-center py-2 font-semibold" title="Bye odds if this team loses its next game">Bye If Loss</th>
               </>
             )}
           </tr>
@@ -408,12 +408,12 @@ export default function StandingsTable({
               <tr
                 key={t.manager_id}
                 onClick={() => toggleManager(t.manager_id)}
-                className={`border-b border-biscuit/60 last:border-0 cursor-pointer hover:bg-biscuit/20 transition-colors ${
+                className={`group cursor-pointer hover:bg-biscuit/20 transition-colors ${
                   t.made_finals ? "bg-goldenrod/10" : ""
                 }`}
               >
-                <td className="text-center py-2 font-mono text-gravy/60 whitespace-nowrap">{i + 1}</td>
-                <td className="py-2 font-semibold text-coffee whitespace-nowrap">
+                <td className={`sticky left-0 z-10 bg-plate bg-gradient-to-r ${t.made_finals ? "from-goldenrod/10 to-goldenrod/10" : "from-transparent to-transparent group-hover:from-biscuit/20 group-hover:to-biscuit/20"} text-center py-2 font-mono text-gravy/60 whitespace-nowrap w-10 min-w-[2.5rem]`}>{i + 1}</td>
+                <td className={`sticky left-10 z-10 shadow-[2px_0_0_#E7CB9E] bg-plate bg-gradient-to-r ${t.made_finals ? "from-goldenrod/10 to-goldenrod/10" : "from-transparent to-transparent group-hover:from-biscuit/20 group-hover:to-biscuit/20"} py-2 font-semibold text-coffee whitespace-nowrap`}>
                   {t.managerName}
                   {t.made_finals && <span className="ml-2 text-[10px] text-burnt font-mono">FINALS</span>}
                   <span className="ml-2 text-gravy/40 font-mono text-xs">{openManagerId === t.manager_id ? "\u25b2" : "\u25bc"}</span>
@@ -426,7 +426,7 @@ export default function StandingsTable({
                 <td className="text-center py-2 font-mono whitespace-nowrap">{fmtNum(t.record.pa, 1)}</td>
                 <PossiblePointsCells stats={possibleByManager.get(t.manager_id)} />
                 <TopNCells stats={topNByManager.get(t.manager_id)} />
-                <td className="text-center pr-4 py-2 font-mono font-bold whitespace-nowrap">
+                <td className="text-center py-2 font-mono font-bold whitespace-nowrap">
                   {seasonComplete ? (
                     <span className="text-burnt">{t.final_place ?? "\u2014"}</span>
                   ) : (
@@ -434,7 +434,7 @@ export default function StandingsTable({
                   )}
                 </td>
                 {!seasonComplete && (
-                  <td className="text-center pr-4 py-2 font-mono font-bold whitespace-nowrap">
+                  <td className="text-center py-2 font-mono font-bold whitespace-nowrap">
                     <ByeOddsCell odds={oddsByManager.get(t.manager_id)} />
                   </td>
                 )}
@@ -449,7 +449,7 @@ export default function StandingsTable({
               </tr>
               {openManagerId === t.manager_id && (
                 <tr key={`${t.manager_id}-expanded`} className="bg-cream/60">
-                  <td colSpan={colCount} className="px-4 py-3">
+                  <td colSpan={colCount} className="!px-4 py-3 !border-l-0">
                     {loadingManagerId === t.manager_id && (
                       <p className="font-mono text-xs text-gravy/60">Loading games&hellip;</p>
                     )}
@@ -628,10 +628,10 @@ function ByeOddsCell({ odds }: { odds: PlayoffOddsRow | undefined }) {
 }
 
 function ScenarioCell({ v, good }: { v: number | null | undefined; good?: boolean }) {
-  if (v == null) return <td className="text-center pr-3 py-2 font-mono text-gravy/40">{"\u2014"}</td>;
+  if (v == null) return <td className="text-center py-2 font-mono text-gravy/40">{"\u2014"}</td>;
   const pct = Number(v);
   const txt = pct > 0 && pct < 1 ? "<1%" : pct > 99 && pct < 100 ? ">99%" : `${Math.round(pct)}%`;
-  return <td className={`text-center pr-3 py-2 font-mono whitespace-nowrap ${good ? "text-green-700" : "text-burnt"}`}>{txt}</td>;
+  return <td className={`text-center py-2 font-mono whitespace-nowrap ${good ? "text-green-700" : "text-burnt"}`}>{txt}</td>;
 }
 
 function RosterList({ label, entries }: { label: string; entries: RosterEntry[] }) {
