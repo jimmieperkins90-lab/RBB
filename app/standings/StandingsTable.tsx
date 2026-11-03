@@ -52,6 +52,8 @@ type GameRow = {
   win: boolean;
 };
 
+type UpcomingRow = { week: number; opponent_manager_id: number; opponentName: string };
+
 type RosterEntry = {
   lineup_pos: string;
   player_name: string;
@@ -222,6 +224,7 @@ export default function StandingsTable({
   const [openManagerId, setOpenManagerId] = useState<number | null>(null);
   const [gamesByManager, setGamesByManager] = useState<Record<number, GameRow[]>>({});
   const [efficiencyByManager, setEfficiencyByManager] = useState<Record<number, Map<string, WeekEfficiency>>>({});
+  const [upcomingByManager, setUpcomingByManager] = useState<Record<number, UpcomingRow[]>>({});
   const [loadingManagerId, setLoadingManagerId] = useState<number | null>(null);
 
   const [openGameKey, setOpenGameKey] = useState<string | null>(null);
@@ -266,8 +269,7 @@ export default function StandingsTable({
         .from("matchups")
         .select("week, time_of_season, opponent_manager_id, score, opp_score, win, game_played, opponent:opponent_manager_id(name)")
         .eq("manager_id", managerId)
-        .eq("year", year)
-        .eq("game_played", true),
+        .eq("year", year),
       supabase
         .from("lineups")
         .select("week, lineup_pos, player_name, player_position, points")
@@ -276,7 +278,17 @@ export default function StandingsTable({
         .neq("lineup_pos", "IR"),
     ]);
 
+    const upcoming: UpcomingRow[] = (matchupsRes.data ?? [])
+      .filter((r: any) => !r.game_played && r.time_of_season === "Regular")
+      .map((r: any) => ({
+        week: r.week,
+        opponent_manager_id: r.opponent_manager_id,
+        opponentName: r.opponent?.name ?? "Unknown",
+      }))
+      .sort((a, b) => a.week - b.week);
+
     const rows: GameRow[] = (matchupsRes.data ?? [])
+      .filter((r: any) => r.game_played)
       .map((r: any) => ({
         week: r.week,
         time_of_season: r.time_of_season,
@@ -314,6 +326,7 @@ export default function StandingsTable({
     });
 
     setGamesByManager((cur) => ({ ...cur, [managerId]: rows }));
+    setUpcomingByManager((cur) => ({ ...cur, [managerId]: upcoming }));
     setEfficiencyByManager((cur) => ({ ...cur, [managerId]: efficiency }));
     setLoadingManagerId(null);
   }
@@ -538,6 +551,29 @@ export default function StandingsTable({
                             </div>
                           );
                         })}
+                        {(upcomingByManager[t.manager_id]?.length ?? 0) > 0 && (
+                          <div className="pt-2">
+                            <div className="font-mono text-[10px] uppercase text-gravy/50 mb-1 px-1">Remaining schedule</div>
+                            <div className="space-y-1">
+                              {upcomingByManager[t.manager_id].map((u) => {
+                                const opp = standings.find((x) => x.manager_id === u.opponent_manager_id);
+                                return (
+                                  <div
+                                    key={u.week}
+                                    className="grid grid-cols-[48px_1fr_92px_16px] items-center gap-2 px-3 py-1.5 rounded font-mono text-xs bg-cream/40 border border-dashed border-biscuit"
+                                  >
+                                    <span className="text-gravy/70 whitespace-nowrap">Wk {u.week}</span>
+                                    <span className="text-coffee font-semibold truncate">vs {u.opponentName}</span>
+                                    <span className="text-right whitespace-nowrap text-gravy/50">
+                                      {opp ? `${opp.record.w}-${opp.record.l}` : ""}
+                                    </span>
+                                    <span />
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </td>
