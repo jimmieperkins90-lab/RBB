@@ -29,6 +29,7 @@ export type Trade = {
   tradeNumber: number;
   year: number;
   date: string;
+  condition: string | null;
   sides: ManagerSide[];
 };
 
@@ -38,7 +39,7 @@ async function getTrades(): Promise<{ trades: Trade[]; years: number[]; managers
   const [tradesRes, assetsRes, managersRes] = await Promise.all([
     supabase
       .from("trades")
-      .select("id, trade_number, year, trade_date, note")
+      .select("id, trade_number, year, trade_date, note, condition")
       .order("trade_date", { ascending: false })
       .order("trade_number", { ascending: false }),
     supabase
@@ -88,6 +89,7 @@ async function getTrades(): Promise<{ trades: Trade[]; years: number[]; managers
       tradeNumber: t.trade_number,
       year: t.year,
       date: new Date(t.trade_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+      condition: t.condition ?? null,
       sides,
     };
   });

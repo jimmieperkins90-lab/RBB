@@ -81,6 +81,12 @@ export default function TradesList({
                 </div>
               ))}
             </div>
+            {trade.condition && (
+              <div className="px-4 py-2.5 border-t-2 border-biscuit/60 bg-goldenrod/15 text-sm text-coffee font-body">
+                <span className="font-mono text-xs font-semibold uppercase tracking-wide mr-2">Condition</span>
+                {trade.condition}
+              </div>
+            )}
           </div>
         ))}
       </div>
